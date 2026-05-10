@@ -84,6 +84,16 @@ impl State {
         result
     }
 
+    fn orient_corners(array: &BitArray, perm: [(usize, u8); 8]) -> BitArray {
+        let mut result = BitArray::new([0]);
+        for (from, (to, orient)) in perm.into_iter().enumerate() {
+            result[5 * to..5 * to + 3].copy_from_bitslice(&array[5 * from..5 * from + 3]); // permute the position
+            let orientation = array[5 * from + 3..5 * from + 5].load_le::<u8>();
+            result[5 * to + 3..5 * to + 5].store_le((orientation + orient) % 3);
+        }
+        result
+    }
+
     /// Returns the state resulting from the given move.
     pub fn mv(&self, mv: Move) -> State {
         match mv.dir {
@@ -111,12 +121,12 @@ impl State {
             }
             Direction::Clockwise => {
                 let corner_perm = match mv.face {
-                    Face::Left => [2, 1, 6, 3, 0, 5, 4, 7],
-                    Face::Right => [0, 5, 2, 1, 4, 7, 6, 3],
-                    Face::Down => [4, 0, 2, 3, 5, 1, 6, 7],
-                    Face::Up => [0, 1, 3, 7, 4, 5, 2, 6],
-                    Face::Back => [1, 3, 0, 2, 4, 5, 6, 7],
-                    Face::Front => [0, 1, 2, 3, 6, 4, 7, 5],
+                    Face::Left => [(2, 0), (1, 0), (6, 0), (3, 0), (0, 0), (5, 0), (4, 0), (7, 0)],
+                    Face::Right => [(0, 0), (5, 0), (2, 0), (1, 0), (4, 0), (7, 0), (6, 0), (3, 0)],
+                    Face::Down => [(4, 1), (0, 2), (2, 0), (3, 0), (5, 2), (1, 1), (6, 0), (7, 0)],
+                    Face::Up => [(0, 0), (1, 0), (3, 2), (7, 1), (4, 0), (5, 0), (2, 1), (6, 2)],
+                    Face::Back => [(1, 2), (3, 1), (0, 1), (2, 2), (4, 0), (5, 0), (6, 0), (7, 0)],
+                    Face::Front => [(0, 0), (1, 0), (2, 0), (3, 0), (6, 1), (4, 2), (7, 2), (5, 1)],
                 };
                 let edge_perm = match mv.face {
                     Face::Left => [0, 1, 2, 3, 10, 5, 8, 7, 4, 9, 6, 11],
@@ -127,18 +137,18 @@ impl State {
                     Face::Front => [0, 1, 6, 7, 4, 5, 3, 2, 8, 9, 10, 11],
                 };
                 State {
-                    corners: Self::permute(&self.corners, corner_perm),
+                    corners: Self::orient_corners(&self.corners, corner_perm),
                     edges: Self::permute(&self.edges, edge_perm),
                 }
             },
             Direction::CounterClockwise => {
                 let corner_perm = match mv.face {
-                    Face::Left => [4, 1, 0, 3, 6, 5, 2, 7],
-                    Face::Right => [0, 3, 2, 7, 4, 1, 6, 5],
-                    Face::Down => [1, 5, 2, 3, 0, 4, 6, 7],
-                    Face::Up => [0, 1, 6, 2, 4, 5, 7, 3],
-                    Face::Back => [2, 0, 3, 1, 4, 5, 6, 7],
-                    Face::Front => [0, 1, 2, 3, 5, 7, 4, 6],
+                    Face::Left => [(4, 0), (1, 0), (0, 0), (3, 0), (6, 0), (5, 0), (2, 0), (7, 0)],
+                    Face::Right => [(0, 0), (3, 0), (2, 0), (7, 0), (4, 0), (1, 0), (6, 0), (5, 0)],
+                    Face::Down => [(1, 1), (5, 2), (2, 0), (3, 0), (0, 2), (4, 1), (6, 0), (7, 0)],
+                    Face::Up => [(0, 0), (1, 0), (6, 2), (2, 1), (4, 0), (5, 0), (7, 1), (3, 2)],
+                    Face::Back => [(2, 2), (0, 1), (3, 1), (1, 2), (4, 0), (5, 0), (6, 0), (7, 0)],
+                    Face::Front => [(0, 0), (1, 0), (2, 0), (3, 0), (5, 1), (7, 2), (4, 2), (6, 1)],
                 };
                 let edge_perm = match mv.face {
                     Face::Left => [0, 1, 2, 3, 8, 5, 10, 7, 6, 9, 4, 11],
@@ -149,7 +159,7 @@ impl State {
                     Face::Front => [0, 1, 7, 6, 4, 5, 2, 3, 8, 9, 10, 11],
                 };
                 State {
-                    corners: Self::permute(&self.corners, corner_perm),
+                    corners: Self::orient_corners(&self.corners, corner_perm),
                     edges: Self::permute(&self.edges, edge_perm),
                 }
             }
