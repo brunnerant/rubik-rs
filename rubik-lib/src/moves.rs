@@ -1,6 +1,6 @@
 use derive_more::derive::Display;
 
-#[derive(Debug, Display, Clone, Copy)]
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
 pub enum Face {
     #[display("L")]
     Left,
@@ -47,7 +47,7 @@ impl Face {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     Clockwise,
     CounterClockwise,
@@ -72,7 +72,7 @@ impl Direction {
     }
 }
 
-#[derive(Debug, Display, Clone, Copy)]
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
 #[display("{face}{}", dir.suffix())]
 pub struct Move {
     pub face: Face,
