@@ -4,7 +4,7 @@ use crate::moves::{Direction, Face, Move};
 
 type BitArray = bitvec::array::BitArray<[u64; 1]>;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct State {
     /// Each corner contains its position (3 bits) and orientation (2 bits), compared to the solved cube.
     ///
@@ -118,12 +118,32 @@ impl State {
 
 #[cfg(test)]
 mod tests {
+    use std::{collections::HashSet, hash::Hash};
+
     use crate::{moves::Move, state::State};
+
+    fn assert_distinct<T: Eq + Hash>(iter: impl Iterator<Item = T>) {
+        let mut elems = HashSet::new();
+        for elem in iter {
+            if !elems.insert(elem) {
+                assert!(false, "elements are not distinct");
+            }
+        }
+    }
 
     #[test]
     fn double_double_rotation_cancel() {
         for mv in [Move::L2, Move::R2, Move::D2, Move::U2, Move::B2, Move::F2] {
             assert_eq!(State::SOLVED.mv(mv).mv(mv), State::SOLVED);
         }
+    }
+
+    #[test]
+    fn double_rotations_are_distinct() {
+        assert_distinct(
+            [Move::L2, Move::R2, Move::D2, Move::U2, Move::B2, Move::F2]
+                .into_iter()
+                .map(|mv| State::SOLVED.mv(mv)),
+        );
     }
 }
