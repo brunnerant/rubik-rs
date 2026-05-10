@@ -76,18 +76,21 @@ impl State {
         ],
     };
 
-    fn permute<const N: usize>(array: &BitArray, perm: [usize; N]) -> BitArray {
+    fn permute<const N: usize>(array: &BitArray, perm: [usize; N], inv: bool) -> BitArray {
         let mut result = BitArray::new([0]);
         for (from, to) in perm.into_iter().enumerate() {
+            let (from, to) = if inv { (to, from) } else { (from, to) };
             result[5 * to..5 * (to + 1)].copy_from_bitslice(&array[5 * from..5 * (from + 1)]);
         }
         result
     }
 
-    fn orient_corners(array: &BitArray, perm: [(usize, u8); 8]) -> BitArray {
+    fn orient_corners(array: &BitArray, perm: [usize; 8], orient: [u8; 8], inv: bool) -> BitArray {
         let mut result = BitArray::new([0]);
-        for (from, (to, orient)) in perm.into_iter().enumerate() {
+        for (from, to) in perm.into_iter().enumerate() {
+            let (from, to) = if inv { (to, from) } else { (from, to) };
             result[5 * to..5 * to + 3].copy_from_bitslice(&array[5 * from..5 * from + 3]); // permute the position
+            let orient = orient[from];
             let orientation = array[5 * from + 3..5 * from + 5].load_le::<u8>();
             result[5 * to + 3..5 * to + 5].store_le((orientation + orient) % 3);
         }
@@ -115,18 +118,18 @@ impl State {
                     Face::Front => [0, 1, 3, 2, 4, 5, 7, 6, 8, 9, 10, 11],
                 };
                 State {
-                    corners: Self::permute(&self.corners, corner_perm),
-                    edges: Self::permute(&self.edges, edge_perm),
+                    corners: Self::permute(&self.corners, corner_perm, false),
+                    edges: Self::permute(&self.edges, edge_perm, false),
                 }
             }
-            Direction::Clockwise => {
-                let corner_perm = match mv.face {
-                    Face::Left => [(2, 0), (1, 0), (6, 0), (3, 0), (0, 0), (5, 0), (4, 0), (7, 0)],
-                    Face::Right => [(0, 0), (5, 0), (2, 0), (1, 0), (4, 0), (7, 0), (6, 0), (3, 0)],
-                    Face::Down => [(4, 1), (0, 2), (2, 0), (3, 0), (5, 2), (1, 1), (6, 0), (7, 0)],
-                    Face::Up => [(0, 0), (1, 0), (3, 2), (7, 1), (4, 0), (5, 0), (2, 1), (6, 2)],
-                    Face::Back => [(1, 2), (3, 1), (0, 1), (2, 2), (4, 0), (5, 0), (6, 0), (7, 0)],
-                    Face::Front => [(0, 0), (1, 0), (2, 0), (3, 0), (6, 1), (4, 2), (7, 2), (5, 1)],
+            _ => {
+                let (corner_perm, corner_orient) = match mv.face {
+                    Face::Left => ([2, 1, 6, 3, 0, 5, 4, 7], [0, 0, 0, 0, 0, 0, 0, 0]),
+                    Face::Right => ([0, 5, 2, 1, 4, 7, 6, 3], [0, 0, 0, 0, 0, 0, 0, 0]),
+                    Face::Down => ([4, 0, 2, 3, 5, 1, 6, 7], [1, 2, 0, 0, 2, 1, 0, 0]),
+                    Face::Up => ([0, 1, 3, 7, 4, 5, 2, 6], [0, 0, 2, 1, 0, 0, 1, 2]),
+                    Face::Back => ([1, 3, 0, 2, 4, 5, 6, 7], [2, 1, 1, 2, 0, 0, 0, 0]),
+                    Face::Front => ([0, 1, 2, 3, 6, 4, 7, 5], [0, 0, 0, 0, 1, 2, 2, 1]),
                 };
                 let edge_perm = match mv.face {
                     Face::Left => [0, 1, 2, 3, 10, 5, 8, 7, 4, 9, 6, 11],
@@ -136,31 +139,10 @@ impl State {
                     Face::Back => [5, 4, 2, 3, 0, 1, 6, 7, 8, 9, 10, 11],
                     Face::Front => [0, 1, 6, 7, 4, 5, 3, 2, 8, 9, 10, 11],
                 };
+                let inv = mv.dir == Direction::CounterClockwise;
                 State {
-                    corners: Self::orient_corners(&self.corners, corner_perm),
-                    edges: Self::permute(&self.edges, edge_perm),
-                }
-            },
-            Direction::CounterClockwise => {
-                let corner_perm = match mv.face {
-                    Face::Left => [(4, 0), (1, 0), (0, 0), (3, 0), (6, 0), (5, 0), (2, 0), (7, 0)],
-                    Face::Right => [(0, 0), (3, 0), (2, 0), (7, 0), (4, 0), (1, 0), (6, 0), (5, 0)],
-                    Face::Down => [(1, 1), (5, 2), (2, 0), (3, 0), (0, 2), (4, 1), (6, 0), (7, 0)],
-                    Face::Up => [(0, 0), (1, 0), (6, 2), (2, 1), (4, 0), (5, 0), (7, 1), (3, 2)],
-                    Face::Back => [(2, 2), (0, 1), (3, 1), (1, 2), (4, 0), (5, 0), (6, 0), (7, 0)],
-                    Face::Front => [(0, 0), (1, 0), (2, 0), (3, 0), (5, 1), (7, 2), (4, 2), (6, 1)],
-                };
-                let edge_perm = match mv.face {
-                    Face::Left => [0, 1, 2, 3, 8, 5, 10, 7, 6, 9, 4, 11],
-                    Face::Right => [0, 1, 2, 3, 4, 11, 6, 9, 8, 5, 10, 7],
-                    Face::Down => [9, 1, 8, 3, 4, 5, 6, 7, 0, 2, 10, 11],
-                    Face::Up => [0, 10, 2, 11, 4, 5, 6, 7, 8, 9, 3, 1],
-                    Face::Back => [4, 5, 2, 3, 1, 0, 6, 7, 8, 9, 10, 11],
-                    Face::Front => [0, 1, 7, 6, 4, 5, 2, 3, 8, 9, 10, 11],
-                };
-                State {
-                    corners: Self::orient_corners(&self.corners, corner_perm),
-                    edges: Self::permute(&self.edges, edge_perm),
+                    corners: Self::orient_corners(&self.corners, corner_perm, corner_orient, inv),
+                    edges: Self::permute(&self.edges, edge_perm, inv),
                 }
             }
         }
@@ -171,7 +153,10 @@ impl State {
 mod tests {
     use std::{collections::HashSet, hash::Hash};
 
-    use crate::{moves::{Direction, Move}, state::State};
+    use crate::{
+        moves::{Direction, Move},
+        state::State,
+    };
 
     fn assert_distinct<T: Eq + Hash>(iter: impl Iterator<Item = T>) {
         let mut elems = HashSet::new();
@@ -201,12 +186,29 @@ mod tests {
     #[test]
     fn forward_cancels_backward() {
         for mv in [Move::L, Move::R, Move::D, Move::U, Move::B, Move::F] {
-            assert_eq!(mv.inverse().face, mv.face);
-            assert_eq!(mv.dir, Direction::Clockwise);
-            assert_eq!(mv.inverse().dir, Direction::CounterClockwise);
-            assert_eq!(mv.inverse().dir, mv.dir.inverse());
-            assert_eq!(mv.dir.inverse().inverse(), mv.dir);
             assert_eq!(State::SOLVED.mv(mv).mv(mv.inverse()), State::SOLVED);
+        }
+    }
+
+    #[test]
+    fn two_quarters_equal_half_turn() {
+        for mv in [Move::L, Move::R, Move::D, Move::U, Move::B, Move::F] {
+            let double = Move {
+                face: mv.face,
+                dir: Direction::HalfTurn,
+            };
+            let inv = mv.inverse();
+            assert_eq!(State::SOLVED.mv(mv).mv(mv), State::SOLVED.mv(double));
+            assert_eq!(State::SOLVED.mv(inv).mv(inv), State::SOLVED.mv(double));
+        }
+    }
+
+    #[test]
+    fn four_quarters_cancel() {
+        for mv in [Move::L, Move::R, Move::D, Move::U, Move::B, Move::F] {
+            let inv = mv.inverse();
+            assert_eq!(State::SOLVED.mv(mv).mv(mv).mv(mv).mv(mv), State::SOLVED);
+            assert_eq!(State::SOLVED.mv(inv).mv(inv).mv(inv).mv(inv), State::SOLVED);
         }
     }
 }
