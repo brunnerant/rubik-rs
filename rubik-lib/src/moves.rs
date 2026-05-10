@@ -1,6 +1,6 @@
 use derive_more::derive::Display;
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, Clone, Copy)]
 pub enum Face {
     #[display("L")]
     Left,
@@ -16,7 +16,38 @@ pub enum Face {
     Front,
 }
 
-#[derive(Debug)]
+pub enum Axis {
+    X,
+    Y,
+    Z,
+}
+
+impl Axis {
+    /// Returns the negative and positive faces along the axis, respectively.
+    pub fn faces(&self) -> (Face, Face) {
+        match self {
+            Axis::X => (Face::Left, Face::Right),
+            Axis::Y => (Face::Down, Face::Up),
+            Axis::Z => (Face::Back, Face::Front),
+        }
+    }
+}
+
+impl Face {
+    /// Returns the axis, and whether the face is positively oriented along that axis.
+    pub fn axis_and_sign(&self) -> (Axis, bool) {
+        match self {
+            Face::Left => (Axis::X, false),
+            Face::Right => (Axis::X, true),
+            Face::Down => (Axis::Y, false),
+            Face::Up => (Axis::Y, true),
+            Face::Back => (Axis::Z, false),
+            Face::Front => (Axis::Z, true),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum Direction {
     Clockwise,
     CounterClockwise,
@@ -24,6 +55,14 @@ pub enum Direction {
 }
 
 impl Direction {
+    pub fn inverse(&self) -> Self {
+        match self {
+            Direction::Clockwise => Direction::CounterClockwise,
+            Direction::CounterClockwise => Direction::Clockwise,
+            Direction::HalfTurn => Direction::HalfTurn,
+        }
+    }
+
     fn suffix(&self) -> &str {
         match self {
             Direction::Clockwise => "",
@@ -33,7 +72,7 @@ impl Direction {
     }
 }
 
-#[derive(Debug, Display)]
+#[derive(Debug, Display, Clone, Copy)]
 #[display("{face}{}", dir.suffix())]
 pub struct Move {
     pub face: Face,
@@ -41,6 +80,13 @@ pub struct Move {
 }
 
 impl Move {
+    pub fn inverse(&self) -> Self {
+        Self {
+            face: self.face,
+            dir: self.dir.inverse(),
+        }
+    }
+
     pub const L: Move = Move {
         face: Face::Left,
         dir: Direction::Clockwise,
@@ -118,7 +164,7 @@ impl Move {
 #[cfg(test)]
 mod tests {
     use crate::moves::Move;
-    
+
     #[test]
     fn move_display() {
         assert_eq!(Move::L.to_string(), "L");

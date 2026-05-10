@@ -1,6 +1,129 @@
+use bitvec::prelude::*;
+
+use crate::moves::{Direction, Face, Move};
+
+type BitArray = bitvec::array::BitArray<[u64; 1]>;
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct State {
-    // Each corner contains its position (3 bits) and orientation (2 bits), compared to the solved cube
-    pub corners: bitvec::BitArr!(for 8 * (3 + 2), in u64),
-    // Each edge contains its position (4 bits) and orientation (1 bit), compared to the solved cube
-    pub edges: bitvec::BitArr!(for 12 * (4 + 1), in u64),
+    /// Each corner contains its position (3 bits) and orientation (2 bits), compared to the solved cube.
+    ///
+    /// The positions tell where each corner comes from in the solved cube.
+    /// Given cartesian (X, Y, Z) coordinates, they are defined as follows:
+    /// - 0: (-1, -1, -1)
+    /// - 1: (+1, -1, -1)
+    /// - 2: (-1, +1, -1)
+    /// - 3: (+1, +1, -1)
+    /// - 4: (-1, -1, +1)
+    /// - 5: (+1, -1, +1)
+    /// - 6: (-1, +1, +1)
+    /// - 7: (+1, +1, +1)
+    ///
+    /// The orientation of a corner tells how many times it was rotated clockwise from its neutral position.
+    /// The neutral position is defined such that the color of the corner along the X axis (+X or -X depending on
+    /// the position) is the same as the color of the adjacent center piece, considering opposite colors as identical.
+    pub corners: BitArray,
+    /// Each edge contains its position (4 bits) and orientation (1 bit), compared to the solved cube.
+    ///
+    /// The positions tell where each edge comes from in the solved cube.
+    /// Given cartesian (X, Y, Z) coordinates, they are defined as follows:
+    /// - 0: (0, -1, -1)
+    /// - 1: (0, +1, -1)
+    /// - 2: (0, -1, +1)
+    /// - 3: (0, +1, +1)
+    /// - 4: (-1, 0, -1)
+    /// - 5: (+1, 0, -1)
+    /// - 6: (-1, 0, +1)
+    /// - 7: (+1, 0, +1)
+    /// - 8: (-1 -1, 0)
+    /// - 9: (+1 -1, 0)
+    /// - 10: (-1 +1, 0)
+    /// - 11: (+1 +1, 0)
+    ///
+    /// The orientation of a corner tells whether it is in its neutral position or flipped.
+    /// To find the neutral position of an edge, consider its two colors and compare it to the two colors of the adjacent center pieces,
+    /// treating opposite colors as identical. Take the common color between those two pairs, and orient the edge such that the color is
+    /// adjacent to the corresponding center piece. If two colors are common between the edge and the center pieces, favor X over Y over Z.
+    pub edges: BitArray,
+}
+
+impl State {
+    /// The state of a solved cube.
+    pub const SOLVED: State = State {
+        corners: bitarr![const u64, Lsb0;
+            0, 0, 0,        0, 0,
+            1, 0, 0,        0, 0,
+            0, 1, 0,        0, 0,
+            1, 1, 0,        0, 0,
+            0, 0, 1,        0, 0,
+            1, 0, 1,        0, 0,
+            0, 1, 1,        0, 0,
+            1, 1, 1,        0, 0,
+        ],
+        edges: bitarr![const u64, Lsb0;
+            0, 0, 0, 0,     0,
+            1, 0, 0, 0,     0,
+            0, 1, 0, 0,     0,
+            1, 1, 0, 0,     0,
+            0, 0, 1, 0,     0,
+            1, 0, 1, 0,     0,
+            0, 1, 1, 0,     0,
+            1, 1, 1, 0,     0,
+            0, 0, 0, 1,     0,
+            1, 0, 0, 1,     0,
+            0, 1, 0, 1,     0,
+            1, 1, 0, 1,     0,
+        ],
+    };
+
+    fn permute<const N: usize>(array: &BitArray, perm: [usize; N]) -> BitArray {
+        let mut result = BitArray::new([0]);
+        for (from, to) in perm.into_iter().enumerate() {
+            result[5 * to..5 * (to + 1)].copy_from_bitslice(&array[5 * from..5 * (from + 1)]);
+        }
+        result
+    }
+
+    /// Returns the state resulting from the given move.
+    pub fn mv(&self, mv: Move) -> State {
+        match mv.dir {
+            Direction::HalfTurn => {
+                let corner_perm = match mv.face {
+                    Face::Left => [6, 1, 4, 3, 2, 5, 0, 7],
+                    Face::Right => [0, 7, 2, 5, 4, 3, 6, 1],
+                    Face::Down => [5, 4, 2, 3, 1, 0, 6, 7],
+                    Face::Up => [0, 1, 7, 6, 4, 5, 3, 2],
+                    Face::Back => [3, 2, 1, 0, 4, 5, 6, 7],
+                    Face::Front => [0, 1, 2, 3, 7, 6, 5, 4],
+                };
+                let edge_perm = match mv.face {
+                    Face::Left => [0, 1, 2, 3, 6, 5, 4, 7, 10, 9, 8, 11],
+                    Face::Right => [0, 1, 2, 3, 4, 7, 6, 5, 8, 11, 10, 9],
+                    Face::Down => [2, 1, 0, 3, 4, 5, 6, 7, 9, 8, 10, 11],
+                    Face::Up => [0, 3, 2, 1, 4, 5, 6, 7, 8, 9, 11, 10],
+                    Face::Back => [1, 0, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11],
+                    Face::Front => [0, 1, 3, 2, 4, 5, 7, 6, 8, 9, 10, 11],
+                };
+                State {
+                    corners: Self::permute(&self.corners, corner_perm),
+                    edges: Self::permute(&self.edges, edge_perm),
+                }
+            }
+            _ => {
+                todo!()
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{moves::Move, state::State};
+
+    #[test]
+    fn double_double_rotation_cancel() {
+        for mv in [Move::L2, Move::R2, Move::D2, Move::U2, Move::B2, Move::F2] {
+            assert_eq!(State::SOLVED.mv(mv).mv(mv), State::SOLVED);
+        }
+    }
 }
