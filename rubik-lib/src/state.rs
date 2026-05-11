@@ -43,7 +43,7 @@ pub struct State {
     /// The orientation of a corner tells whether it is in its neutral position or flipped.
     /// To find the neutral position of an edge, consider its two colors and compare it to the two colors of the adjacent center pieces,
     /// treating opposite colors as identical. Take the common color between those two pairs, and orient the edge such that the color is
-    /// adjacent to the corresponding center piece. If two colors are common between the edge and the center pieces, favor X over Y over Z.
+    /// adjacent to the corresponding center piece. If two colors are common between the edge and the center pieces, take either of them.
     pub edges: BitArray,
 }
 
@@ -80,19 +80,39 @@ impl State {
         let mut result = BitArray::new([0]);
         for (from, to) in perm.into_iter().enumerate() {
             let (from, to) = if inv { (to, from) } else { (from, to) };
-            result[5 * to..5 * (to + 1)].copy_from_bitslice(&array[5 * from..5 * (from + 1)]);
+            result[5 * to..5 * to + 5].copy_from_bitslice(&array[5 * from..5 * from + 5]);
         }
         result
     }
 
-    fn orient_corners(array: &BitArray, perm: [usize; 8], orient: [u8; 8], inv: bool) -> BitArray {
+    fn orient_corners(array: &BitArray, perm: [usize; 8], axis: u8, inv: bool) -> BitArray {
         let mut result = BitArray::new([0]);
         for (from, to) in perm.into_iter().enumerate() {
+            // position
             let (from, to) = if inv { (to, from) } else { (from, to) };
-            result[5 * to..5 * to + 3].copy_from_bitslice(&array[5 * from..5 * from + 3]); // permute the position
-            let orient = orient[from];
+            result[5 * to..5 * to + 3].copy_from_bitslice(&array[5 * from..5 * from + 3]);
+            // orientation
+            let offset = if axis != 0 && from != to {
+                let dir = (from.count_ones() % 2 == 0) ^ (axis == 2);
+                if dir { 1 } else { 2 }
+            } else {
+                0
+            };
             let orientation = array[5 * from + 3..5 * from + 5].load_le::<u8>();
-            result[5 * to + 3..5 * to + 5].store_le((orientation + orient) % 3);
+            result[5 * to + 3..5 * to + 5].store_le((orientation + offset) % 3);
+        }
+        result
+    }
+
+    fn orient_edges(array: &BitArray, perm: [usize; 12], axis: u8, inv: bool) -> BitArray {
+        let mut result = BitArray::new([0]);
+        for (from, to) in perm.into_iter().enumerate() {
+            // position
+            let (from, to) = if inv { (to, from) } else { (from, to) };
+            result[5 * to..5 * to + 4].copy_from_bitslice(&array[5 * from..5 * from + 4]);
+            // orientation
+            let flip = from != to && array[5 * from + 2..5 * from + 4].load_le::<u8>() == axis;
+            result.set(5 * to + 4, flip ^ array[5 * from + 4]);
         }
         result
     }
@@ -123,13 +143,13 @@ impl State {
                 }
             }
             _ => {
-                let (corner_perm, corner_orient) = match mv.face {
-                    Face::Left => ([2, 1, 6, 3, 0, 5, 4, 7], [0, 0, 0, 0, 0, 0, 0, 0]),
-                    Face::Right => ([0, 5, 2, 1, 4, 7, 6, 3], [0, 0, 0, 0, 0, 0, 0, 0]),
-                    Face::Down => ([4, 0, 2, 3, 5, 1, 6, 7], [1, 2, 0, 0, 2, 1, 0, 0]),
-                    Face::Up => ([0, 1, 3, 7, 4, 5, 2, 6], [0, 0, 2, 1, 0, 0, 1, 2]),
-                    Face::Back => ([1, 3, 0, 2, 4, 5, 6, 7], [2, 1, 1, 2, 0, 0, 0, 0]),
-                    Face::Front => ([0, 1, 2, 3, 6, 4, 7, 5], [0, 0, 0, 0, 1, 2, 2, 1]),
+                let corner_perm = match mv.face {
+                    Face::Left => [2, 1, 6, 3, 0, 5, 4, 7],
+                    Face::Right => [0, 5, 2, 1, 4, 7, 6, 3],
+                    Face::Down => [4, 0, 2, 3, 5, 1, 6, 7],
+                    Face::Up => [0, 1, 3, 7, 4, 5, 2, 6],
+                    Face::Back => [1, 3, 0, 2, 4, 5, 6, 7],
+                    Face::Front => [0, 1, 2, 3, 6, 4, 7, 5],
                 };
                 let edge_perm = match mv.face {
                     Face::Left => [0, 1, 2, 3, 10, 5, 8, 7, 4, 9, 6, 11],
@@ -139,10 +159,15 @@ impl State {
                     Face::Back => [5, 4, 2, 3, 0, 1, 6, 7, 8, 9, 10, 11],
                     Face::Front => [0, 1, 6, 7, 4, 5, 3, 2, 8, 9, 10, 11],
                 };
+                let axis = match mv.face.axis_and_sign().0 {
+                    crate::moves::Axis::X => 0,
+                    crate::moves::Axis::Y => 1,
+                    crate::moves::Axis::Z => 2,
+                };
                 let inv = mv.dir == Direction::CounterClockwise;
                 State {
-                    corners: Self::orient_corners(&self.corners, corner_perm, corner_orient, inv),
-                    edges: Self::permute(&self.edges, edge_perm, inv),
+                    corners: Self::orient_corners(&self.corners, corner_perm, axis, inv),
+                    edges: Self::orient_edges(&self.edges, edge_perm, axis, inv),
                 }
             }
         }
@@ -154,9 +179,33 @@ mod tests {
     use std::{collections::HashSet, hash::Hash};
 
     use crate::{
-        moves::{Direction, Move},
+        moves::{Direction, Face, Move},
         state::State,
     };
+
+    fn all_faces() -> impl Iterator<Item = Face> {
+        [
+            Face::Left,
+            Face::Right,
+            Face::Down,
+            Face::Up,
+            Face::Back,
+            Face::Front,
+        ]
+        .into_iter()
+    }
+
+    fn all_moves() -> impl Iterator<Item = Move> {
+        all_faces().flat_map(|face| {
+            [
+                Direction::Clockwise,
+                Direction::CounterClockwise,
+                Direction::HalfTurn,
+            ]
+            .into_iter()
+            .map(move |dir| Move { face, dir })
+        })
+    }
 
     fn assert_distinct<T: Eq + Hash>(iter: impl Iterator<Item = T>) {
         let mut elems = HashSet::new();
@@ -175,40 +224,45 @@ mod tests {
     }
 
     #[test]
-    fn double_rotations_are_distinct() {
-        assert_distinct(
-            [Move::L2, Move::R2, Move::D2, Move::U2, Move::B2, Move::F2]
-                .into_iter()
-                .map(|mv| State::SOLVED.mv(mv)),
-        );
+    fn all_moves_are_distinct() {
+        assert_distinct(all_moves().map(|mv| State::SOLVED.mv(mv).corners));
+        assert_distinct(all_moves().map(|mv| State::SOLVED.mv(mv).edges));
     }
 
     #[test]
-    fn forward_cancels_backward() {
-        for mv in [Move::L, Move::R, Move::D, Move::U, Move::B, Move::F] {
+    fn inverse_move_cancels() {
+        for mv in all_moves() {
             assert_eq!(State::SOLVED.mv(mv).mv(mv.inverse()), State::SOLVED);
         }
     }
 
     #[test]
     fn two_quarters_equal_half_turn() {
-        for mv in [Move::L, Move::R, Move::D, Move::U, Move::B, Move::F] {
-            let double = Move {
-                face: mv.face,
+        for face in all_faces() {
+            let q = Move {
+                face,
+                dir: Direction::Clockwise,
+            };
+            let qi = q.inverse();
+            let h = Move {
+                face,
                 dir: Direction::HalfTurn,
             };
-            let inv = mv.inverse();
-            assert_eq!(State::SOLVED.mv(mv).mv(mv), State::SOLVED.mv(double));
-            assert_eq!(State::SOLVED.mv(inv).mv(inv), State::SOLVED.mv(double));
+            assert_eq!(State::SOLVED.mv(q).mv(q), State::SOLVED.mv(h));
+            assert_eq!(State::SOLVED.mv(qi).mv(qi), State::SOLVED.mv(h));
         }
     }
 
     #[test]
     fn four_quarters_cancel() {
-        for mv in [Move::L, Move::R, Move::D, Move::U, Move::B, Move::F] {
-            let inv = mv.inverse();
-            assert_eq!(State::SOLVED.mv(mv).mv(mv).mv(mv).mv(mv), State::SOLVED);
-            assert_eq!(State::SOLVED.mv(inv).mv(inv).mv(inv).mv(inv), State::SOLVED);
+        for face in all_faces() {
+            let q = Move {
+                face,
+                dir: Direction::Clockwise,
+            };
+            let qi = q.inverse();
+            assert_eq!(State::SOLVED.mv(q).mv(q).mv(q).mv(q), State::SOLVED);
+            assert_eq!(State::SOLVED.mv(qi).mv(qi).mv(qi).mv(qi), State::SOLVED);
         }
     }
 }
