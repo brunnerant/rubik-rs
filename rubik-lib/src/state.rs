@@ -232,4 +232,25 @@ mod tests {
             assert_eq!(State::SOLVED.mv(qi).mv(qi).mv(qi).mv(qi), State::SOLVED);
         }
     }
+
+    #[test]
+    fn unique_moves_to_depth_5() {
+        const DEPTH: usize = 5;
+        let mut states_to_check = vec![State::SOLVED];
+        let mut known_states = HashSet::from([State::SOLVED]);
+        for _ in 0..DEPTH {
+            let mut next_states_to_check = vec![];
+            for state in states_to_check.drain(..) {
+                for mv in Move::BASIC_MOVES {
+                    let next_state = state.mv(mv);
+                    if !known_states.contains(&next_state) {
+                        known_states.insert(next_state);
+                        next_states_to_check.push(next_state);
+                    }
+                }
+            }
+            states_to_check.append(&mut next_states_to_check);
+        }
+        assert_eq!(known_states.len(), 621649);
+    }
 }
