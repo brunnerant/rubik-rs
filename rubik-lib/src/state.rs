@@ -4,7 +4,7 @@ use crate::moves::{Direction, Face, Move};
 
 type BitArray = bitvec::array::BitArray<[u64; 1]>;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct State {
     /// Each corner contains its position (3 bits) and orientation (2 bits), compared to the solved cube.
     ///
@@ -183,30 +183,6 @@ mod tests {
         state::State,
     };
 
-    fn all_faces() -> impl Iterator<Item = Face> {
-        [
-            Face::Left,
-            Face::Right,
-            Face::Down,
-            Face::Up,
-            Face::Back,
-            Face::Front,
-        ]
-        .into_iter()
-    }
-
-    fn all_moves() -> impl Iterator<Item = Move> {
-        all_faces().flat_map(|face| {
-            [
-                Direction::Clockwise,
-                Direction::CounterClockwise,
-                Direction::HalfTurn,
-            ]
-            .into_iter()
-            .map(move |dir| Move { face, dir })
-        })
-    }
-
     fn assert_distinct<T: Eq + Hash>(iter: impl Iterator<Item = T>) {
         let mut elems = HashSet::new();
         for elem in iter {
@@ -225,20 +201,28 @@ mod tests {
 
     #[test]
     fn all_moves_are_distinct() {
-        assert_distinct(all_moves().map(|mv| State::SOLVED.mv(mv).corners));
-        assert_distinct(all_moves().map(|mv| State::SOLVED.mv(mv).edges));
+        assert_distinct(
+            Move::BASIC_MOVES
+                .iter()
+                .map(|&mv| State::SOLVED.mv(mv).corners),
+        );
+        assert_distinct(
+            Move::BASIC_MOVES
+                .iter()
+                .map(|&mv| State::SOLVED.mv(mv).edges),
+        );
     }
 
     #[test]
     fn inverse_move_cancels() {
-        for mv in all_moves() {
+        for mv in Move::BASIC_MOVES {
             assert_eq!(State::SOLVED.mv(mv).mv(mv.inverse()), State::SOLVED);
         }
     }
 
     #[test]
     fn two_quarters_equal_half_turn() {
-        for face in all_faces() {
+        for face in Face::ALL_FACES {
             let q = Move {
                 face,
                 dir: Direction::Clockwise,
@@ -255,7 +239,7 @@ mod tests {
 
     #[test]
     fn four_quarters_cancel() {
-        for face in all_faces() {
+        for face in Face::ALL_FACES {
             let q = Move {
                 face,
                 dir: Direction::Clockwise,

@@ -34,6 +34,15 @@ impl Axis {
 }
 
 impl Face {
+    pub const ALL_FACES: [Face; 6] = [
+        Face::Left,
+        Face::Right,
+        Face::Down,
+        Face::Up,
+        Face::Back,
+        Face::Front,
+    ];
+
     /// Returns the axis, and whether the face is positively oriented along that axis.
     pub fn axis_and_sign(&self) -> (Axis, bool) {
         match self {
@@ -80,6 +89,27 @@ pub struct Move {
 }
 
 impl Move {
+    pub const BASIC_MOVES: [Move; 18] = [
+        Self::L,
+        Self::L_,
+        Self::L2,
+        Self::R,
+        Self::R_,
+        Self::R2,
+        Self::D,
+        Self::D_,
+        Self::D2,
+        Self::U,
+        Self::U_,
+        Self::U2,
+        Self::B,
+        Self::B_,
+        Self::B2,
+        Self::F,
+        Self::F_,
+        Self::F2,
+    ];
+
     pub fn inverse(&self) -> Self {
         Self {
             face: self.face,
