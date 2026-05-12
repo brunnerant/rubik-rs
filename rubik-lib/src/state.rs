@@ -1,8 +1,4 @@
-use bitvec::prelude::*;
-
 use crate::moves::{Direction, Face, Move};
-
-type BitArray = bitvec::array::BitArray<[u64; 1]>;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct State {
@@ -22,7 +18,7 @@ pub struct State {
     /// The orientation of a corner tells how many times it was rotated clockwise from its neutral position.
     /// The neutral position is defined such that the color of the corner along the X axis (+X or -X depending on
     /// the position) is the same as the color of the adjacent center piece, considering opposite colors as identical.
-    pub corners: BitArray,
+    pub corners: u64,
     /// Each edge contains its position (4 bits) and orientation (1 bit), compared to the solved cube.
     ///
     /// The positions tell where each edge comes from in the solved cube.
@@ -44,53 +40,38 @@ pub struct State {
     /// To find the neutral position of an edge, consider its two colors and compare it to the two colors of the adjacent center pieces,
     /// treating opposite colors as identical. Take the common color between those two pairs, and orient the edge such that the color is
     /// adjacent to the corresponding center piece. If two colors are common between the edge and the center pieces, take either of them.
-    pub edges: BitArray,
+    pub edges: u64,
 }
 
 impl State {
     /// The state of a solved cube.
     pub const SOLVED: State = State {
-        corners: bitarr![const u64, Lsb0;
-            0, 0, 0,        0, 0,
-            1, 0, 0,        0, 0,
-            0, 1, 0,        0, 0,
-            1, 1, 0,        0, 0,
-            0, 0, 1,        0, 0,
-            1, 0, 1,        0, 0,
-            0, 1, 1,        0, 0,
-            1, 1, 1,        0, 0,
-        ],
-        edges: bitarr![const u64, Lsb0;
-            0, 0, 0, 0,     0,
-            1, 0, 0, 0,     0,
-            0, 1, 0, 0,     0,
-            1, 1, 0, 0,     0,
-            0, 0, 1, 0,     0,
-            1, 0, 1, 0,     0,
-            0, 1, 1, 0,     0,
-            1, 1, 1, 0,     0,
-            0, 0, 0, 1,     0,
-            1, 0, 0, 1,     0,
-            0, 1, 0, 1,     0,
-            1, 1, 0, 1,     0,
-        ],
+        corners: 0b_00111_00110_00101_00100_00011_00010_00001_00000,
+        edges: 0b_01011_01010_01001_01000_00111_00110_00101_00100_00011_00010_00001_00000,
     };
 
-    fn permute<const N: usize>(array: &BitArray, perm: [usize; N], inv: bool) -> BitArray {
-        let mut result = BitArray::new([0]);
+    fn get_block(data: u64, pos: u8, size: u8) -> u64 {
+        let mask = (1 << size) - 1;
+        (data >> pos) & mask
+    }
+
+    fn permute<const N: usize>(array: u64, perm: [u8; N], inv: bool) -> u64 {
+        let mut result = 0;
         for (from, to) in perm.into_iter().enumerate() {
+            let from = from as u8;
             let (from, to) = if inv { (to, from) } else { (from, to) };
-            result[5 * to..5 * to + 5].copy_from_bitslice(&array[5 * from..5 * from + 5]);
+            result |= Self::get_block(array, 5 * from, 5) << (5 * to);
         }
         result
     }
 
-    fn orient_corners(array: &BitArray, perm: [usize; 8], axis: u8, inv: bool) -> BitArray {
-        let mut result = BitArray::new([0]);
+    fn orient_corners(array: u64, perm: [u8; 8], axis: u8, inv: bool) -> u64 {
+        let mut result = 0;
         for (from, to) in perm.into_iter().enumerate() {
             // position
+            let from = from as u8;
             let (from, to) = if inv { (to, from) } else { (from, to) };
-            result[5 * to..5 * to + 3].copy_from_bitslice(&array[5 * from..5 * from + 3]);
+            result |= Self::get_block(array, 5 * from, 3) << (5 * to);
             // orientation
             let offset = if axis != 0 && from != to {
                 let dir = (from.count_ones() % 2 == 0) ^ (axis == 2);
@@ -98,21 +79,23 @@ impl State {
             } else {
                 0
             };
-            let orientation = array[5 * from + 3..5 * from + 5].load_le::<u8>();
-            result[5 * to + 3..5 * to + 5].store_le((orientation + offset) % 3);
+            let old_or = Self::get_block(array, 5 * from + 3, 2);
+            let new_or = (old_or + offset) % 3;
+            result |= new_or << (5 * to + 3);
         }
         result
     }
 
-    fn orient_edges(array: &BitArray, perm: [usize; 12], axis: u8, inv: bool) -> BitArray {
-        let mut result = BitArray::new([0]);
+    fn orient_edges(array: u64, perm: [u8; 12], axis: u8, inv: bool) -> u64 {
+        let mut result = 0;
         for (from, to) in perm.into_iter().enumerate() {
             // position
+            let from = from as u8;
             let (from, to) = if inv { (to, from) } else { (from, to) };
-            result[5 * to..5 * to + 4].copy_from_bitslice(&array[5 * from..5 * from + 4]);
+            result |= Self::get_block(array, 5 * from, 4) << (5 * to);
             // orientation
-            let flip = from != to && array[5 * from + 2..5 * from + 4].load_le::<u8>() == axis;
-            result.set(5 * to + 4, flip ^ array[5 * from + 4]);
+            let flip = from != to && (Self::get_block(array, 5 * from + 2, 2) as u8) == axis;
+            result |= (flip as u64 ^ Self::get_block(array, 5 * from + 4, 1)) << (5 * to + 4)
         }
         result
     }
@@ -138,8 +121,8 @@ impl State {
                     Face::Front => [0, 1, 3, 2, 4, 5, 7, 6, 8, 9, 10, 11],
                 };
                 State {
-                    corners: Self::permute(&self.corners, corner_perm, false),
-                    edges: Self::permute(&self.edges, edge_perm, false),
+                    corners: Self::permute(self.corners, corner_perm, false),
+                    edges: Self::permute(self.edges, edge_perm, false),
                 }
             }
             _ => {
@@ -166,8 +149,8 @@ impl State {
                 };
                 let inv = mv.dir == Direction::CounterClockwise;
                 State {
-                    corners: Self::orient_corners(&self.corners, corner_perm, axis, inv),
-                    edges: Self::orient_edges(&self.edges, edge_perm, axis, inv),
+                    corners: Self::orient_corners(self.corners, corner_perm, axis, inv),
+                    edges: Self::orient_edges(self.edges, edge_perm, axis, inv),
                 }
             }
         }
