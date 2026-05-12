@@ -1,5 +1,6 @@
 use std::collections::{HashMap, hash_map::Entry};
 
+use itertools::join;
 use rubik_lib::{moves::Move, state::State};
 
 fn main() {
@@ -25,9 +26,6 @@ fn main() {
     }
 
     for moves in canon {
-        for m in moves {
-            print!("{} ", m);
-        }
-        println!();
+        println!("{}", join(moves, " "));
     }
 }
