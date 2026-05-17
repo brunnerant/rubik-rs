@@ -45,7 +45,7 @@ pub struct State {
 
 impl State {
     /// The state of a solved cube.
-    pub const SOLVED: State = State {
+    pub const SOLVED: Self = Self {
         corners: 0b_00111_00110_00101_00100_00011_00010_00001_00000,
         edges: 0b_01011_01010_01001_01000_00111_00110_00101_00100_00011_00010_00001_00000,
     };
@@ -101,7 +101,7 @@ impl State {
     }
 
     /// Returns the state resulting from the given move.
-    pub fn mv(&self, mv: Move) -> State {
+    pub fn mv(&self, mv: Move) -> Self {
         match mv.dir {
             Direction::HalfTurn => {
                 let corner_perm = match mv.face {
@@ -120,7 +120,7 @@ impl State {
                     Face::Back => [1, 0, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11],
                     Face::Front => [0, 1, 3, 2, 4, 5, 7, 6, 8, 9, 10, 11],
                 };
-                State {
+                Self {
                     corners: Self::permute(self.corners, corner_perm, false),
                     edges: Self::permute(self.edges, edge_perm, false),
                 }
@@ -148,12 +148,80 @@ impl State {
                     crate::moves::Axis::Z => 2,
                 };
                 let inv = mv.dir == Direction::CounterClockwise;
-                State {
+                Self {
                     corners: Self::orient_corners(self.corners, corner_perm, axis, inv),
                     edges: Self::orient_edges(self.edges, edge_perm, axis, inv),
                 }
             }
         }
+    }
+
+    pub fn compose(&self, other: &State) -> State {
+        let mut corners = 0;
+        for i in 0..8 {
+            let ori = Self::get_block(other.corners, 5 * i + 3, 2);
+            let pos = Self::get_block(other.corners, 5 * i, 3) as u8;
+            let ori = (ori + Self::get_block(self.corners, 5 * pos + 3, 2)) % 3;
+            let pos = Self::get_block(self.corners, 5 * pos, 3);
+            corners |= pos << (5 * i);
+            corners |= ori << (5 * i + 3);
+        }
+
+        let mut edges: u64 = 0;
+        for i in 0..12 {
+            fn axes(pos: u8) -> u8 {
+                (1 << (pos >> 2)) ^ 0b111
+            }
+
+            let mut pos = i;
+            let mut common_axes = axes(pos);
+            let mut ori = Self::get_block(other.edges, 5 * pos + 4, 1);
+            
+            pos = Self::get_block(other.edges, 5 * pos, 4) as u8;
+            common_axes &= axes(pos);
+            ori ^= Self::get_block(self.edges, 5 * pos + 4, 1);
+            
+            pos = Self::get_block(self.edges, 5 * pos, 4) as u8;
+            common_axes &= axes(pos);
+            ori ^= (common_axes == 0) as u64;
+
+            edges |= (pos as u64) << (5 * i);
+            edges |= ori << (5 * i + 4);
+        }
+
+        State {
+            corners,
+            edges,
+        }
+    }
+}
+
+impl std::fmt::Display for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f)?;
+        writeln!(f, "corners:")?;
+        write!(f, "- permutation:")?;
+        for i in 0..8 {
+            write!(f, " {}", State::get_block(self.corners, 5 * i, 3))?;
+        }
+        writeln!(f)?;
+        write!(f, "- orientation:")?;
+        for i in 0..8 {
+            write!(f, " {}", State::get_block(self.corners, 5 * i + 3, 2))?;
+        }
+        writeln!(f)?;
+        writeln!(f, "edges:")?;
+        write!(f, "- permutation:")?;
+        for i in 0..12 {
+            write!(f, " {:02}", State::get_block(self.edges, 5 * i, 4))?;
+        }
+        writeln!(f)?;
+        write!(f, "- orientation:")?;
+        for i in 0..12 {
+            write!(f, " {}", State::get_block(self.edges, 5 * i + 4, 1))?;
+        }
+        writeln!(f)?;
+        Ok(())
     }
 }
 
@@ -161,7 +229,9 @@ impl State {
 mod tests {
     use std::{collections::HashSet, hash::Hash};
 
-    use crate::{
+    use itertools::iproduct;
+
+use crate::{
         moves::{Direction, Face, Move},
         state::State,
     };
@@ -230,6 +300,18 @@ mod tests {
             let qi = q.inverse();
             assert_eq!(State::SOLVED.mv(q).mv(q).mv(q).mv(q), State::SOLVED);
             assert_eq!(State::SOLVED.mv(qi).mv(qi).mv(qi).mv(qi), State::SOLVED);
+        }
+    }
+
+    #[test]
+    fn state_composition() {
+        let basic_moves = Move::BASIC_MOVES;
+        let basic_states = basic_moves.map(|m| State::SOLVED.mv(m));
+
+        for (i, j) in iproduct!(0..18, 0..18) {
+            let state1 = State::SOLVED.mv(basic_moves[i]).mv(basic_moves[j]);
+            let state2 = basic_states[i].compose(&basic_states[j]);
+            assert_eq!(state1, state2, "{} != {}", state1, state2);
         }
     }
 
