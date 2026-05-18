@@ -159,18 +159,20 @@ impl State {
     pub fn compose(&self, other: &State) -> State {
         let mut corners = 0;
         for i in 0..8 {
-            let ori = Self::get_block(other.corners, 5 * i + 3, 2);
-            let pos = Self::get_block(other.corners, 5 * i, 3) as u8;
-            let ori = (ori + Self::get_block(self.corners, 5 * pos + 3, 2)) % 3;
-            let pos = Self::get_block(self.corners, 5 * pos, 3);
-            corners |= pos << (5 * i);
+            let mut pos = i;
+            let mut ori = Self::get_block(other.corners, 5 * pos + 3, 2);
+            pos = Self::get_block(other.corners, 5 * pos, 3) as u8;
+            ori = (ori + Self::get_block(self.corners, 5 * pos + 3, 2)) % 3;
+            pos = Self::get_block(self.corners, 5 * pos, 3) as u8;
+            corners |= (pos as u64) << (5 * i);
             corners |= ori << (5 * i + 3);
         }
 
         let mut edges: u64 = 0;
         for i in 0..12 {
+            #[inline]
             fn axes(pos: u8) -> u8 {
-                (1 << (pos >> 2)) ^ 0b111
+                1 << (pos >> 2)
             }
 
             let mut pos = i;
@@ -178,12 +180,12 @@ impl State {
             let mut ori = Self::get_block(other.edges, 5 * pos + 4, 1);
             
             pos = Self::get_block(other.edges, 5 * pos, 4) as u8;
-            common_axes &= axes(pos);
+            common_axes |= axes(pos);
             ori ^= Self::get_block(self.edges, 5 * pos + 4, 1);
             
             pos = Self::get_block(self.edges, 5 * pos, 4) as u8;
-            common_axes &= axes(pos);
-            ori ^= (common_axes == 0) as u64;
+            common_axes |= axes(pos);
+            ori ^= (common_axes == 0b111) as u64;
 
             edges |= (pos as u64) << (5 * i);
             edges |= ori << (5 * i + 4);
