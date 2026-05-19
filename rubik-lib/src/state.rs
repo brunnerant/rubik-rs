@@ -46,8 +46,8 @@ pub struct State {
 impl State {
     /// The state of a solved cube.
     pub const SOLVED: Self = Self {
-        corners: 0b_00111_00110_00101_00100_00011_00010_00001_00000,
-        edges: 0b_01011_01010_01001_01000_00111_00110_00101_00100_00011_00010_00001_00000,
+        corners: 0b_11100_11000_10100_10000_01100_01000_00100_00000,
+        edges: 0b_10110_10100_10010_10000_01110_01100_01010_01000_00110_00100_00010_00000,
     };
 
     fn get_block(data: u64, pos: u8, size: u8) -> u64 {
@@ -71,7 +71,7 @@ impl State {
             // position
             let from = from as u8;
             let (from, to) = if inv { (to, from) } else { (from, to) };
-            result |= Self::get_block(array, 5 * from, 3) << (5 * to);
+            result |= Self::get_block(array, 5 * from + 2, 3) << (5 * to + 2);
             // orientation
             let offset = if axis != 0 && from != to {
                 let dir = (from.count_ones() % 2 == 0) ^ (axis == 2);
@@ -79,9 +79,9 @@ impl State {
             } else {
                 0
             };
-            let old_or = Self::get_block(array, 5 * from + 3, 2);
+            let old_or = Self::get_block(array, 5 * from, 2);
             let new_or = (old_or + offset) % 3;
-            result |= new_or << (5 * to + 3);
+            result |= new_or << (5 * to);
         }
         result
     }
@@ -92,10 +92,10 @@ impl State {
             // position
             let from = from as u8;
             let (from, to) = if inv { (to, from) } else { (from, to) };
-            result |= Self::get_block(array, 5 * from, 4) << (5 * to);
+            result |= Self::get_block(array, 5 * from + 1, 4) << (5 * to + 1);
             // orientation
-            let flip = from != to && (Self::get_block(array, 5 * from + 2, 2) as u8) == axis;
-            result |= (flip as u64 ^ Self::get_block(array, 5 * from + 4, 1)) << (5 * to + 4)
+            let flip = from != to && (Self::get_block(array, 5 * from + 3, 2) as u8) == axis;
+            result |= (flip as u64 ^ Self::get_block(array, 5 * from, 1)) << (5 * to)
         }
         result
     }
@@ -160,12 +160,12 @@ impl State {
         let mut corners = 0;
         for i in 0..8 {
             let mut pos = i;
-            let mut ori = Self::get_block(other.corners, 5 * pos + 3, 2);
-            pos = Self::get_block(other.corners, 5 * pos, 3) as u8;
-            ori = (ori + Self::get_block(self.corners, 5 * pos + 3, 2)) % 3;
-            pos = Self::get_block(self.corners, 5 * pos, 3) as u8;
-            corners |= (pos as u64) << (5 * i);
-            corners |= ori << (5 * i + 3);
+            let mut ori = Self::get_block(other.corners, 5 * pos, 2);
+            pos = Self::get_block(other.corners, 5 * pos + 2, 3) as u8;
+            ori = (ori + Self::get_block(self.corners, 5 * pos, 2)) % 3;
+            pos = Self::get_block(self.corners, 5 * pos + 2, 3) as u8;
+            corners |= (pos as u64) << (5 * i + 2);
+            corners |= ori << (5 * i);
         }
 
         let mut edges: u64 = 0;
@@ -177,18 +177,18 @@ impl State {
 
             let mut pos = i;
             let mut common_axes = axes(pos);
-            let mut ori = Self::get_block(other.edges, 5 * pos + 4, 1);
+            let mut ori = Self::get_block(other.edges, 5 * pos, 1);
             
-            pos = Self::get_block(other.edges, 5 * pos, 4) as u8;
+            pos = Self::get_block(other.edges, 5 * pos + 1, 4) as u8;
             common_axes |= axes(pos);
-            ori ^= Self::get_block(self.edges, 5 * pos + 4, 1);
+            ori ^= Self::get_block(self.edges, 5 * pos, 1);
             
-            pos = Self::get_block(self.edges, 5 * pos, 4) as u8;
+            pos = Self::get_block(self.edges, 5 * pos + 1, 4) as u8;
             common_axes |= axes(pos);
             ori ^= (common_axes == 0b111) as u64;
 
-            edges |= (pos as u64) << (5 * i);
-            edges |= ori << (5 * i + 4);
+            edges |= (pos as u64) << (5 * i + 1);
+            edges |= ori << (5 * i);
         }
 
         State {
@@ -204,23 +204,23 @@ impl std::fmt::Display for State {
         writeln!(f, "corners:")?;
         write!(f, "- permutation:")?;
         for i in 0..8 {
-            write!(f, " {}", State::get_block(self.corners, 5 * i, 3))?;
+            write!(f, " {}", State::get_block(self.corners, 5 * i + 2, 3))?;
         }
         writeln!(f)?;
         write!(f, "- orientation:")?;
         for i in 0..8 {
-            write!(f, " {}", State::get_block(self.corners, 5 * i + 3, 2))?;
+            write!(f, " {}", State::get_block(self.corners, 5 * i, 2))?;
         }
         writeln!(f)?;
         writeln!(f, "edges:")?;
         write!(f, "- permutation:")?;
         for i in 0..12 {
-            write!(f, " {:02}", State::get_block(self.edges, 5 * i, 4))?;
+            write!(f, " {:02}", State::get_block(self.edges, 5 * i + 1, 4))?;
         }
         writeln!(f)?;
         write!(f, "- orientation:")?;
         for i in 0..12 {
-            write!(f, " {}", State::get_block(self.edges, 5 * i + 4, 1))?;
+            write!(f, " {}", State::get_block(self.edges, 5 * i, 1))?;
         }
         writeln!(f)?;
         Ok(())
