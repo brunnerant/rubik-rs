@@ -168,7 +168,7 @@ impl State {
             corners |= ori << (5 * i);
         }
 
-        let mut edges: u64 = 0;
+        let mut edges = 0;
         for i in 0..12 {
             #[inline]
             fn axes(pos: u8) -> u8 {
@@ -189,6 +189,29 @@ impl State {
 
             edges |= (pos as u64) << (5 * i + 1);
             edges |= ori << (5 * i);
+        }
+
+        State {
+            corners,
+            edges,
+        }
+    }
+
+    pub fn invert(&self) -> State {
+        let mut corners = 0;
+        for i in 0..8 {
+            let pos = Self::get_block(self.corners, 5 * i + 2, 3) as u8;
+            let ori = Self::get_block(self.corners, 5 * i, 2);
+            corners |= (i as u64) << (5 * pos + 2);
+            corners |= (3 - ori) % 3 << (5 * pos);
+        }
+
+        let mut edges = 0;
+        for i in 0..12 {
+            let pos = Self::get_block(self.edges, 5 * i + 1, 4) as u8;
+            let ori = Self::get_block(self.edges, 5 * i, 1);
+            edges |= (i as u64) << (5 * pos + 1);
+            edges |= ori << (5 * pos);
         }
 
         State {
@@ -314,6 +337,16 @@ use crate::{
             let state1 = State::SOLVED.mv(basic_moves[i]).mv(basic_moves[j]);
             let state2 = basic_states[i].compose(&basic_states[j]);
             assert_eq!(state1, state2, "{} != {}", state1, state2);
+        }
+    }
+
+    #[test]
+    fn state_inversion() {
+        for (i, j) in iproduct!(0..18, 0..18) {
+            let state = State::SOLVED.mv(Move::BASIC_MOVES[i]).mv(Move::BASIC_MOVES[j]);
+            let inv = state.invert();
+            assert_eq!(state.compose(&inv), State::SOLVED);
+            assert_eq!(inv.compose(&state), State::SOLVED);
         }
     }
 
