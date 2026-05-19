@@ -1,7 +1,7 @@
-use std::{collections::{HashMap, hash_map::Entry}, env::args};
+use std::env::args;
 
 use itertools::join;
-use rubik_lib::{moves::Move, state::State};
+use rubik_lib::util::Moves;
 
 fn main() {
     const DEFAULT_DEPTH: usize = 5;
@@ -9,28 +9,8 @@ fn main() {
         .nth(1)
         .map(|arg| arg.parse::<usize>().unwrap_or(DEFAULT_DEPTH))
         .unwrap_or(DEFAULT_DEPTH);
-    
-    let mut canon = vec![vec![]];
-    let mut states_to_check = vec![(0, State::SOLVED)];
-    let mut state_to_canon = HashMap::from([(State::SOLVED, 0)]);
-    for _ in 0..depth {
-        let mut next_states_to_check = vec![];
-        for (idx, state) in states_to_check.drain(..) {
-            for mv in Move::BASIC_MOVES {
-                let next_state = state.mv(mv);
-                if let Entry::Vacant(e) = state_to_canon.entry(next_state) {
-                    e.insert(canon.len());
-                    next_states_to_check.push((canon.len(), next_state));
-                    let mut moves = canon[idx].clone();
-                    moves.push(mv);
-                    canon.push(moves);
-                }
-            }
-        }
-        states_to_check.append(&mut next_states_to_check);
-    }
 
-    for moves in canon {
+    for moves in Moves::to_depth(depth).iter() {
         println!("{}", join(moves, " "));
     }
 }

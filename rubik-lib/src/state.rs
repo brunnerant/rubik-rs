@@ -178,11 +178,11 @@ impl State {
             let mut pos = i;
             let mut common_axes = axes(pos);
             let mut ori = Self::get_block(other.edges, 5 * pos, 1);
-            
+
             pos = Self::get_block(other.edges, 5 * pos + 1, 4) as u8;
             common_axes |= axes(pos);
             ori ^= Self::get_block(self.edges, 5 * pos, 1);
-            
+
             pos = Self::get_block(self.edges, 5 * pos + 1, 4) as u8;
             common_axes |= axes(pos);
             ori ^= (common_axes == 0b111) as u64;
@@ -191,10 +191,7 @@ impl State {
             edges |= ori << (5 * i);
         }
 
-        State {
-            corners,
-            edges,
-        }
+        State { corners, edges }
     }
 
     pub fn invert(&self) -> State {
@@ -203,7 +200,7 @@ impl State {
             let pos = Self::get_block(self.corners, 5 * i + 2, 3) as u8;
             let ori = Self::get_block(self.corners, 5 * i, 2);
             corners |= (i as u64) << (5 * pos + 2);
-            corners |= (3 - ori) % 3 << (5 * pos);
+            corners |= ((3 - ori) % 3) << (5 * pos);
         }
 
         let mut edges = 0;
@@ -214,10 +211,7 @@ impl State {
             edges |= ori << (5 * pos);
         }
 
-        State {
-            corners,
-            edges,
-        }
+        State { corners, edges }
     }
 }
 
@@ -256,7 +250,7 @@ mod tests {
 
     use itertools::iproduct;
 
-use crate::{
+    use crate::{
         moves::{Direction, Face, Move},
         state::State,
     };
@@ -343,31 +337,12 @@ use crate::{
     #[test]
     fn state_inversion() {
         for (i, j) in iproduct!(0..18, 0..18) {
-            let state = State::SOLVED.mv(Move::BASIC_MOVES[i]).mv(Move::BASIC_MOVES[j]);
+            let state = State::SOLVED
+                .mv(Move::BASIC_MOVES[i])
+                .mv(Move::BASIC_MOVES[j]);
             let inv = state.invert();
             assert_eq!(state.compose(&inv), State::SOLVED);
             assert_eq!(inv.compose(&state), State::SOLVED);
         }
-    }
-
-    #[test]
-    fn unique_moves_to_depth_5() {
-        const DEPTH: usize = 5;
-        let mut states_to_check = vec![State::SOLVED];
-        let mut known_states = HashSet::from([State::SOLVED]);
-        for _ in 0..DEPTH {
-            let mut next_states_to_check = vec![];
-            for state in states_to_check.drain(..) {
-                for mv in Move::BASIC_MOVES {
-                    let next_state = state.mv(mv);
-                    if !known_states.contains(&next_state) {
-                        known_states.insert(next_state);
-                        next_states_to_check.push(next_state);
-                    }
-                }
-            }
-            states_to_check.append(&mut next_states_to_check);
-        }
-        assert_eq!(known_states.len(), 621649);
     }
 }
