@@ -10,7 +10,7 @@ fn main() {
         .map(|arg| arg.parse::<usize>().unwrap_or(DEFAULT_DEPTH))
         .unwrap_or(DEFAULT_DEPTH);
 
-    for moves in Moves::to_depth(depth).iter() {
+    for (moves, _) in Moves::to_depth(depth).iter() {
         println!("{}", join(moves, " "));
     }
 }

@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::{moves::Move, state::State};
 
 pub struct Moves {
-    moves: Vec<(Move, usize)>,
+    moves: Vec<(Move, usize, State)>,
 }
 
 impl Moves {
@@ -21,7 +21,7 @@ impl Moves {
                     let next_state = state.mv(mv);
                     if visited.insert(next_state) {
                         next_states_to_check.push((next_state, moves.len()));
-                        moves.push((mv, last_mv));
+                        moves.push((mv, last_mv, next_state));
                     }
                 }
             }
@@ -43,12 +43,12 @@ impl Moves {
 }
 
 pub struct MoveIter<'a> {
-    moves: &'a [(Move, usize)],
+    moves: &'a [(Move, usize, State)],
     idx: usize,
 }
 
 impl<'a> Iterator for MoveIter<'a> {
-    type Item = Vec<Move>;
+    type Item = (Vec<Move>, State);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.idx >= self.moves.len() {
@@ -56,8 +56,9 @@ impl<'a> Iterator for MoveIter<'a> {
         }
         let mut result = Vec::new();
         let mut idx = self.idx;
+        let state = self.moves[idx].2;
         loop {
-            let (mv, last_idx) = self.moves[idx];
+            let (mv, last_idx, _) = self.moves[idx];
             result.push(mv);
             if last_idx == usize::MAX {
                 break;
@@ -66,7 +67,7 @@ impl<'a> Iterator for MoveIter<'a> {
         }
         self.idx += 1;
         result.reverse();
-        Some(result)
+        Some((result, state))
     }
 }
 

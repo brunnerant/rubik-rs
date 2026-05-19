@@ -50,7 +50,7 @@ impl State {
         edges: 0b_10110_10100_10010_10000_01110_01100_01010_01000_00110_00100_00010_00000,
     };
 
-    fn get_block(data: u64, pos: u8, size: u8) -> u64 {
+    pub(crate) fn get_block(data: u64, pos: u8, size: u8) -> u64 {
         let mask = (1 << size) - 1;
         (data >> pos) & mask
     }
