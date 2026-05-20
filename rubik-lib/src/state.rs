@@ -237,7 +237,7 @@ impl std::fmt::Display for State {
         writeln!(f)?;
         write!(f, "- orientation:")?;
         for i in 0..12 {
-            write!(f, " {}", State::get_block(self.edges, 5 * i, 1))?;
+            write!(f, "  {}", State::get_block(self.edges, 5 * i, 1))?;
         }
         writeln!(f)?;
         Ok(())
