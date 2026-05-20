@@ -139,5 +139,6 @@ use super::*;
         for &state in states.iter() {
             trie.insert(state);
         }
+        assert_eq!(states, trie.iter().collect::<Vec<_>>());
     }
 }
