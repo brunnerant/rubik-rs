@@ -74,34 +74,32 @@ impl Iterator for TrieIter<'_> {
     type Item = State;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((node, i)) = self.stack.pop() {
+        while let Some((node, idx)) = self.stack.pop() {
             match node {
                 Trie::Branch { children } => {
-                    let child_idx = i & 0x0f;
-                    let parent_idx = i >> 4;
-                    if (child_idx as usize) < children.len() {
+                    let pos = idx >> 4; // the position of the corner or edge is given for orientation branches
+                    let i = idx & 0x0f;
+                    if (i as usize) < children.len() {
                         let s = self.stack.len();
-                        self.stack.push((node, i + 1));
+                        self.stack.push((node, idx + 1));
+
                         #[allow(clippy::collapsible_else_if)]
                         let j = if s < 2 * 8 {
                             if s % 2 == 0 {
-                                State::get_block(self.state.corners, 5 * child_idx + 2, 3) as u8
+                                State::get_block(self.state.corners, 5 * i + 2, 3) as u8
                             } else {
-                                (i + State::get_block(self.state.corners, 5 * parent_idx, 2) as u8)
-                                    % 3
+                                (i + State::get_block(self.state.corners, 5 * pos, 2) as u8) % 3
                             }
                         } else {
                             if s % 2 == 0 {
-                                State::get_block(self.state.edges, 5 * child_idx + 1, 4) as u8
+                                State::get_block(self.state.edges, 5 * i + 1, 4) as u8
                             } else {
-                                (i + State::get_block(self.state.edges, 5 * parent_idx, 1) as u8)
-                                    % 2
+                                (i + State::get_block(self.state.edges, 5 * pos, 1) as u8) % 2
                             }
                         };
 
                         if let Some(child) = &children[j as usize] {
-                            let idx = if s % 2 == 0 { 0 } else { j << 4 };
-                            self.stack.push((child, idx));
+                            self.stack.push((child, i << 4));
                         }
                     }
                 }
@@ -151,9 +149,9 @@ mod tests {
     use crate::{moves::Move, state::State, trie::Trie, util::Moves};
 
     #[test]
-    fn test_trie_ordering() {
+    fn trie_normal_ordering() {
         let mut trie = Trie::new();
-        let mut states: Vec<_> = Moves::to_depth(3).iter().map(|(_, s)| s).collect();
+        let mut states: Vec<_> = Moves::to_depth(4).iter().map(|(_, s)| s).collect();
         for &state in states.iter() {
             trie.insert(state);
         }
@@ -162,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    fn test_trie_coset_ordering1() {
+    fn trie_coset_ordering1() {
         let mut trie = Trie::new();
         let state1 = State::SOLVED;
         let state2 = state1.mv(Move::F);
@@ -170,18 +168,38 @@ mod tests {
         trie.insert(state1);
         trie.insert(state2);
         trie.insert(state3);
-        let states: Vec<State> = trie.ordered_coset(State::SOLVED.mv(Move::B)).collect();
+        let states: Vec<State> = trie.ordered_coset(State::SOLVED.mv(Move::F_)).collect();
         assert_eq!(states, vec![state2, state1, state3]);
     }
 
-    fn test_trie_coset_ordering() {
+    #[test]
+    fn trie_coset_ordering2() {
         let mut trie = Trie::new();
-        let mut states: Vec<_> = Moves::to_depth(2).iter().map(|(_, s)| s).collect();
+        let state1 = State::SOLVED.mv(Move::D_);
+        let state2 = State::SOLVED.mv(Move::L);
+        trie.insert(state1);
+        trie.insert(state2);
+        let states: Vec<State> = trie.ordered_coset(State::SOLVED.mv(Move::F)).collect();
+        assert_eq!(states, vec![state1, state2]);
+    }
+
+    #[test]
+    fn trie_coset_ordering3() {
+        let mut trie = Trie::new();
+        let mut states: Vec<_> = Moves::to_depth(4).iter().map(|(_, s)| s).collect();
         for &state in states.iter() {
             trie.insert(state);
         }
-        let coset = State::SOLVED.mv(Move::F);
-        states.sort_by_key(|s| coset.compose(s));
-        assert_eq!(states, trie.ordered_coset(coset).collect::<Vec<_>>());
+        let coset = State::SOLVED.mv(Move::F2).mv(Move::U);
+        for state in states.iter_mut() {
+            *state = coset.compose(state);
+        }
+        states.sort();
+        assert_eq!(
+            states,
+            trie.ordered_coset(coset)
+                .map(|s| coset.compose(&s))
+                .collect::<Vec<_>>()
+        );
     }
 }

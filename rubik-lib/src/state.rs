@@ -1,6 +1,6 @@
 use crate::moves::{Direction, Face, Move};
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash)]
 pub struct State {
     /// Each corner contains its position (3 bits) and orientation (2 bits), compared to the solved cube.
     ///
@@ -215,7 +215,7 @@ impl State {
     }
 }
 
-impl std::fmt::Display for State {
+impl std::fmt::Debug for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f)?;
         writeln!(f, "corners:")?;
@@ -330,7 +330,7 @@ mod tests {
         for (i, j) in iproduct!(0..18, 0..18) {
             let state1 = State::SOLVED.mv(basic_moves[i]).mv(basic_moves[j]);
             let state2 = basic_states[i].compose(&basic_states[j]);
-            assert_eq!(state1, state2, "{} != {}", state1, state2);
+            assert_eq!(state1, state2, "{:?} != {:?}", state1, state2);
         }
     }
 
