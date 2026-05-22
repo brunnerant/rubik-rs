@@ -2,10 +2,9 @@ use itertools::Itertools;
 
 use crate::state::State;
 
-#[derive(Clone)]
-pub enum Trie {
-    Branch { children: Vec<Option<Box<Trie>>> },
-    Leaf { state: State },
+pub struct Trie {
+    branches: Vec<usize>,
+    states: Vec<State>,
 }
 
 impl Default for Trie {
@@ -15,14 +14,16 @@ impl Default for Trie {
 }
 
 impl Trie {
+    const NO_CHILD: usize = usize::MAX;
+
     pub fn new() -> Self {
-        Trie::Branch {
-            children: vec![None; 8],
+        Self {
+            branches: vec![Self::NO_CHILD; 8],
+            states: vec![],
         }
     }
 
     pub fn insert(&mut self, state: State) {
-        let mut node = self;
         let mut branches = [(0, 0); 2 * 8 + 2 * 12];
         let mut b = 0;
         for i in 0..8 {
@@ -39,91 +40,107 @@ impl Trie {
             branches[b + 1] = (ori as usize, 2);
             b += 2;
         }
+        let mut node = 0;
         for (&(i, _), &(_, l)) in branches.iter().tuple_windows() {
-            node = node.get_or_insert_branch(i, l);
+            node = self.get_or_insert_branch(node, i, l);
         }
-        node.insert_leaf(branches.last().unwrap().0, state);
+        self.insert_leaf(node, branches.last().unwrap().0, state);
     }
 
-    fn get_or_insert_branch(&mut self, pos: usize, size: usize) -> &mut Trie {
-        let Trie::Branch { children } = self else {
-            panic!("expected branch");
-        };
-        if children[pos].is_none() {
-            children[pos] = Some(Box::new(Trie::Branch {
-                children: vec![None; size],
-            }));
+    fn get_or_insert_branch(&mut self, node: usize, pos: usize, size: usize) -> usize {
+        if self.branches[node + pos] == Self::NO_CHILD {
+            self.branches[node + pos] = self.branches.len();
+            self.branches.append(&mut vec![Self::NO_CHILD; size]);
         }
-        children[pos].as_mut().unwrap()
+        self.branches[node + pos]
     }
 
-    fn insert_leaf(&mut self, pos: usize, state: State) {
-        let Trie::Branch { children } = self else {
-            panic!("expected branch");
-        };
-        children[pos] = Some(Box::new(Trie::Leaf { state }));
+    fn insert_leaf(&mut self, node: usize, pos: usize, state: State) {
+        self.branches[node + pos] = self.states.len();
+        self.states.push(state);
     }
 
-    fn branching_impl(&self) -> (usize, usize) {
-        match self {
-            Trie::Branch { children } => {
-                let n = children.iter().filter(|c| c.is_some()).count();
-                let (a, b) = children
-                    .iter()
-                    .filter_map(|c| c.as_ref())
-                    .map(|c| c.branching_impl())
-                    .fold((0, 0), |(s1, s2), (b1, b2)| (s1 + b1, s2 + b2));
-                (a + n, b + children.len())
-            }
-            Trie::Leaf { .. } => (0, 0),
+    fn is_leaf(s: usize) -> bool {
+        s >= 2 * 8 + 2 * 12
+    }
+
+    fn num_children(s: usize) -> usize {
+        match (s < 2 * 8, s % 2 == 0) {
+            (true, true) => 8,
+            (true, false) => 3,
+            (false, true) => 12,
+            (false, false) => 2,
         }
+    }
+
+    fn branching_impl(&self, node: usize, s: usize) -> (usize, usize) {
+        if Self::is_leaf(s) {
+            return (0, 0);
+        }
+        let num_children = Self::num_children(s);
+        let num_branches = self.branches[node..node + num_children]
+            .iter()
+            .filter(|&&n| n != Self::NO_CHILD)
+            .count();
+        let (a, b) = self.branches[node..node + num_children]
+            .iter()
+            .filter(|&&n| n != Self::NO_CHILD)
+            .map(|&n| self.branching_impl(n, s + 1))
+            .fold((0, 0), |(s1, s2), (b1, b2)| (s1 + b1, s2 + b2));
+        (num_branches + a, num_children + b)
     }
 
     pub fn branching(&self) -> f64 {
-        let (a, b) = self.branching_impl();
+        let (a, b) = self.branching_impl(0, 0);
         if b == 0 { 0.0 } else { a as f64 / b as f64 }
     }
 }
 
 pub struct TrieIter<'a> {
+    trie: &'a Trie,
     state: State,
-    stack: Vec<(&'a Trie, u8)>,
+    stack: [(usize, u8); 2 * 8 + 2 * 12],
+    size: usize,
 }
 
 impl Iterator for TrieIter<'_> {
     type Item = State;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((node, idx)) = self.stack.pop() {
-            match node {
-                Trie::Branch { children } => {
-                    let pos = idx >> 4; // the position of the corner or edge is given for orientation branches
-                    let i = idx & 0x0f;
-                    if (i as usize) < children.len() {
-                        let s = self.stack.len();
-                        self.stack.push((node, idx + 1));
+        while self.size > 0 {
+            let s = self.size - 1;
+            let (node, idx) = self.stack[s];
+            let pos = idx >> 4; // the position of the corner or edge is given for orientation branches
+            let i = idx & 0x0f;
+            let n = Trie::num_children(s);
 
-                        #[allow(clippy::collapsible_else_if)]
-                        let j = if s < 2 * 8 {
-                            if s % 2 == 0 {
-                                State::get_block(self.state.corners, 5 * i + 2, 3) as u8
-                            } else {
-                                (i + State::get_block(self.state.corners, 5 * pos, 2) as u8) % 3
-                            }
-                        } else {
-                            if s % 2 == 0 {
-                                State::get_block(self.state.edges, 5 * i + 1, 4) as u8
-                            } else {
-                                (i + State::get_block(self.state.edges, 5 * pos, 1) as u8) % 2
-                            }
-                        };
+            if (i as usize) < n {
+                // Go to the next branch
+                self.stack[s].1 += 1;
 
-                        if let Some(child) = &children[j as usize] {
-                            self.stack.push((child, i << 4));
-                        }
+                let j = match (s < 2 * 8, s % 2 == 0) {
+                    (true, true) => State::get_block(self.state.corners, 5 * i + 2, 3) as u8,
+                    (true, false) => {
+                        (i + State::get_block(self.state.corners, 5 * pos, 2) as u8) % 3
                     }
+                    (false, true) => State::get_block(self.state.edges, 5 * i + 1, 4) as u8,
+                    (false, false) => {
+                        (i + State::get_block(self.state.edges, 5 * pos, 1) as u8) % 2
+                    }
+                };
+
+                
+                let child_idx = self.trie.branches[node + j as usize];
+                if child_idx != Trie::NO_CHILD {
+                    if self.size >= self.stack.len() {
+                        return Some(self.trie.states[child_idx]);
+                    }
+                    self.stack[self.size] = (child_idx, i << 4);
+                    self.size += 1;
                 }
-                Trie::Leaf { state } => return Some(*state),
+            } else {
+                // Pop the branch off the stack
+                self.size -= 1;
             }
         }
         None
@@ -137,8 +154,10 @@ impl Trie {
 
     pub fn ordered_coset<'a>(&'a self, coset: State) -> TrieIter<'a> {
         TrieIter {
+            trie: self,
             state: coset.invert(),
-            stack: vec![(self, 0)],
+            stack: [(0, 0); 2 * 8 + 2 * 12],
+            size: 1,
         }
     }
 }
