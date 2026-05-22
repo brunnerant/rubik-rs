@@ -94,6 +94,10 @@ impl Trie {
         let (a, b) = self.branching_impl(0, 0);
         if b == 0 { 0.0 } else { a as f64 / b as f64 }
     }
+
+    pub fn footprint(&self) -> usize {
+        self.branches.len() * size_of::<usize>() + self.states.len() * size_of::<State>()
+    }
 }
 
 pub struct TriePtr {
