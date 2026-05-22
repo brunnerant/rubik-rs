@@ -63,6 +63,26 @@ impl Trie {
         };
         children[pos] = Some(Box::new(Trie::Leaf { state }));
     }
+
+    fn branching_impl(&self) -> (usize, usize) {
+        match self {
+            Trie::Branch { children } => {
+                let n = children.iter().filter(|c| c.is_some()).count();
+                let (a, b) = children
+                    .iter()
+                    .filter_map(|c| c.as_ref())
+                    .map(|c| c.branching_impl())
+                    .fold((0, 0), |(s1, s2), (b1, b2)| (s1 + b1, s2 + b2));
+                (a + n, b + children.len())
+            }
+            Trie::Leaf { .. } => (0, 0),
+        }
+    }
+
+    pub fn branching(&self) -> f64 {
+        let (a, b) = self.branching_impl();
+        if b == 0 { 0.0 } else { a as f64 / b as f64 }
+    }
 }
 
 pub struct TrieIter<'a> {
