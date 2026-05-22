@@ -96,17 +96,22 @@ impl Trie {
     }
 }
 
-pub struct TrieIter<'a> {
-    trie: &'a Trie,
+pub struct TriePtr {
     state: State,
     stack: [(usize, u8); 2 * 8 + 2 * 12],
     size: usize,
 }
 
-impl Iterator for TrieIter<'_> {
-    type Item = State;
+impl TriePtr {
+    pub fn first(coset: State) -> TriePtr {
+        TriePtr {
+            state: coset.invert(),
+            stack: [(0, 0); 2 * 8 + 2 * 12],
+            size: 1,
+        }
+    }
 
-    fn next(&mut self) -> Option<Self::Item> {
+    pub fn next(&mut self, trie: &Trie) -> Option<State> {
         while self.size > 0 {
             let s = self.size - 1;
             let (node, idx) = self.stack[s];
@@ -129,11 +134,10 @@ impl Iterator for TrieIter<'_> {
                     }
                 };
 
-                
-                let child_idx = self.trie.branches[node + j as usize];
+                let child_idx = trie.branches[node + j as usize];
                 if child_idx != Trie::NO_CHILD {
                     if self.size >= self.stack.len() {
-                        return Some(self.trie.states[child_idx]);
+                        return Some(trie.states[child_idx]);
                     }
                     self.stack[self.size] = (child_idx, i << 4);
                     self.size += 1;
@@ -147,6 +151,19 @@ impl Iterator for TrieIter<'_> {
     }
 }
 
+pub struct TrieIter<'a> {
+    trie: &'a Trie,
+    ptr: TriePtr,
+}
+
+impl<'a> Iterator for TrieIter<'a> {
+    type Item = State;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.ptr.next(self.trie)
+    }
+}
+
 impl Trie {
     pub fn ordered<'a>(&'a self) -> TrieIter<'a> {
         self.ordered_coset(State::SOLVED)
@@ -155,9 +172,7 @@ impl Trie {
     pub fn ordered_coset<'a>(&'a self, coset: State) -> TrieIter<'a> {
         TrieIter {
             trie: self,
-            state: coset.invert(),
-            stack: [(0, 0); 2 * 8 + 2 * 12],
-            size: 1,
+            ptr: TriePtr::first(coset),
         }
     }
 }
