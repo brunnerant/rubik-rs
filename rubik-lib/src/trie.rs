@@ -1,3 +1,4 @@
+
 use itertools::Itertools;
 
 use crate::state::State;
@@ -5,6 +6,35 @@ use crate::state::State;
 pub struct Trie {
     branches: Vec<usize>,
     states: Vec<State>,
+}
+
+#[derive(Default)]
+pub struct Stats {
+    pub num_nodes: usize,
+    pub max_num_nodes: usize,
+    pub num_segments: usize,
+}
+
+impl Stats {
+    pub fn avg_branching(&self) -> f64 {
+        self.num_nodes as f64 / self.max_num_nodes as f64
+    }
+
+    pub fn avg_segment_length(&self) -> f64 {
+        self.num_nodes as f64 / self.num_segments as f64
+    }
+}
+
+impl std::ops::Add for Stats {
+    type Output = Stats;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Stats {
+            num_nodes: self.num_nodes + rhs.num_nodes,
+            max_num_nodes: self.max_num_nodes + rhs.max_num_nodes,
+            num_segments: self.num_segments + rhs.num_segments,
+        }
+    }
 }
 
 impl Default for Trie {
@@ -64,7 +94,7 @@ impl Trie {
         s >= 2 * 8 + 2 * 12
     }
 
-    fn num_children(s: usize) -> usize {
+    fn max_children(s: usize) -> usize {
         match (s < 2 * 8, s % 2 == 0) {
             (true, true) => 8,
             (true, false) => 3,
@@ -73,26 +103,32 @@ impl Trie {
         }
     }
 
-    fn branching_impl(&self, node: usize, s: usize) -> (usize, usize) {
+    fn branching_impl(&self, node: usize, s: usize) -> Stats {
         if Self::is_leaf(s) {
-            return (0, 0);
+            return Stats {
+                num_nodes: 0,
+                max_num_nodes: 0,
+                num_segments: 1,
+            };
         }
-        let num_children = Self::num_children(s);
-        let num_branches = self.branches[node..node + num_children]
+        let max_children = Self::max_children(s);
+        let children = self.branches[node..node + max_children]
             .iter()
-            .filter(|&&n| n != Self::NO_CHILD)
-            .count();
-        let (a, b) = self.branches[node..node + num_children]
-            .iter()
-            .filter(|&&n| n != Self::NO_CHILD)
+            .filter(|&&n| n != Self::NO_CHILD);
+        let mut stats = children.clone()
             .map(|&n| self.branching_impl(n, s + 1))
-            .fold((0, 0), |(s1, s2), (b1, b2)| (s1 + b1, s2 + b2));
-        (num_branches + a, num_children + b)
+            .fold(Stats::default(), |s1, s2| s1 + s2);
+        let num_children = children.count();
+        stats.max_num_nodes += max_children;
+        stats.num_nodes += num_children;
+        if num_children != 1 {
+            stats.num_segments += 1;
+        }
+        stats
     }
 
-    pub fn branching(&self) -> f64 {
-        let (a, b) = self.branching_impl(0, 0);
-        if b == 0 { 0.0 } else { a as f64 / b as f64 }
+    pub fn stats(&self) -> Stats {
+        self.branching_impl(0, 0)
     }
 
     pub fn footprint(&self) -> usize {
@@ -121,7 +157,7 @@ impl TriePtr {
             let (node, idx) = self.stack[s];
             let pos = idx >> 4; // the position of the corner or edge is given for orientation branches
             let i = idx & 0x0f;
-            let n = Trie::num_children(s);
+            let n = Trie::max_children(s);
 
             if (i as usize) < n {
                 // Go to the next branch

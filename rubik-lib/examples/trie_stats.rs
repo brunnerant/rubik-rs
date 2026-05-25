@@ -7,7 +7,9 @@ fn main() {
         count += 1;
         trie.insert(state);
     }
-    println!("number of states: {}", count);
-    println!("branching factor: {:.2}", trie.branching());
-    println!("memory use:       {} MB", trie.footprint() / 1024 / 1024);
+    let stats = trie.stats();
+    println!("number of states:   {}", count);
+    println!("avg branching:      {:.2}", stats.avg_branching());
+    println!("avg segment length: {:.1}", stats.avg_segment_length());
+    println!("memory use:         {} MB", trie.footprint() / 1024 / 1024);
 }
