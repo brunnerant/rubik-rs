@@ -158,9 +158,7 @@ impl Trie {
 
 pub struct TriePtr {
     coset: State,
-    stack: [u64; 2 * 8 + 2 * 12],
-    size: u8,
-    last_d: u8,
+    stack: smallvec::SmallVec<[u64; 13]>,
 }
 
 impl TriePtr {
@@ -185,15 +183,12 @@ impl TriePtr {
 
         TriePtr {
             coset,
-            stack: [0; 2 * 8 + 2 * 12],
-            size: 1,
-            last_d: 0,
+            stack: smallvec::smallvec![0],
         }
     }
 
     pub fn next(&mut self, trie: &Trie) -> Option<State> {
-        while self.size > 0 {
-            let top = self.stack[self.size as usize - 1];
+        while let Some(&top) = self.stack.last() {
             let node = State::get_block(top, 0, 56) as usize;
             let i = State::get_block(top, 60, 4) as u8;
             let branch = trie.branches[node];
@@ -202,7 +197,7 @@ impl TriePtr {
 
             if (i as usize) < n {
                 // Go to the next branch
-                self.stack[self.size as usize - 1] += 1 << 60;
+                *self.stack.last_mut().unwrap() += 1 << 60;
                 let parent_i = State::get_block(branch, 54, 4) as u8;
                 let j = match (d < 2 * 8, d.is_multiple_of(2)) {
                     (true, true) => State::get_block(self.coset.corners, 5 * i + 2, 3) as u8,
@@ -225,17 +220,18 @@ impl TriePtr {
                     if child != leaf {
                         return Some(trie.states[leaf as usize]);
                     }
-                    self.stack[self.size as usize] = child | ((j as u64) << 56);
-                    self.size += 1;
-                    self.last_d = d as u8;
+                    self.stack.push(child | ((j as u64) << 56));
                 }
             } else {
                 // Pop the branch off the stack
-                self.size -= 1;
-                self.last_d = d as u8;
+                self.stack.pop();
             }
         }
         None
+    }
+
+    pub fn depth(&self) -> u8 {
+        self.stack.len() as u8
     }
 }
 
