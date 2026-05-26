@@ -7,3 +7,10 @@ edition = "2024"
 derive_more = { version = "2.1.1", features = ["display"] }
 itertools = "0.14.0"
 smallvec = { version = "1.15.1", features = ["union"] }
+
+[dev-dependencies]
+criterion = "0.8.2"
+
+[[bench]]
+name = "main"
+harness = false

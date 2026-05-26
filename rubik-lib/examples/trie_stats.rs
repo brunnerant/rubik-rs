@@ -1,4 +1,8 @@
-use rubik_lib::{state::State, trie::{TrieBuilder, TriePtr}, util::Moves};
+use rubik_lib::{
+    state::State,
+    trie::{TrieBuilder, TriePtr},
+    util::Moves,
+};
 
 fn main() {
     let mut trie = TrieBuilder::new();
