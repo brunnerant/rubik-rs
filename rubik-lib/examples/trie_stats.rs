@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use rubik_lib::{
     algo::{
         moves::Moves,
@@ -9,7 +10,7 @@ use rubik_lib::{
 fn main() {
     let mut trie = TrieBuilder::new();
     let mut count = 0;
-    for (_, state) in Moves::to_depth(5).iter() {
+    for (_, state) in Moves::to_depth(5).unique_by(|&(_, s)| s) {
         count += 1;
         trie.insert(state);
     }

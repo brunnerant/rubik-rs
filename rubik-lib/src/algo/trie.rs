@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use smallvec::{SmallVec, smallvec};
 
 use crate::model::state::State;
 
@@ -158,7 +159,7 @@ impl Trie {
 
 pub struct TriePtr {
     coset: State,
-    stack: smallvec::SmallVec<[u64; 13]>,
+    stack: SmallVec<[u64; 13]>,
 }
 
 impl TriePtr {
@@ -183,7 +184,7 @@ impl TriePtr {
 
         TriePtr {
             coset,
-            stack: smallvec::smallvec![0],
+            stack: smallvec![0],
         }
     }
 
@@ -284,14 +285,23 @@ impl std::cmp::Ord for State {
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use crate::{
         algo::moves::Moves, algo::trie::TrieBuilder, model::moves::Move, model::state::State,
     };
 
+    fn states_to_depth(d: u8) -> Vec<State> {
+        Moves::to_depth(d)
+            .unique_by(|&(_, s)| s)
+            .map(|(_, s)| s)
+            .collect()
+    }
+
     #[test]
     fn trie_normal_ordering() {
         let mut trie = TrieBuilder::new();
-        let mut states: Vec<_> = Moves::to_depth(4).iter().map(|(_, s)| s).collect();
+        let mut states: Vec<_> = states_to_depth(4);
         for &state in states.iter() {
             trie.insert(state);
         }
@@ -329,7 +339,7 @@ mod tests {
     #[test]
     fn trie_coset_ordering3() {
         let mut trie = TrieBuilder::new();
-        let mut states: Vec<_> = Moves::to_depth(4).iter().map(|(_, s)| s).collect();
+        let mut states: Vec<_> = states_to_depth(4);
         for &state in states.iter() {
             trie.insert(state);
         }

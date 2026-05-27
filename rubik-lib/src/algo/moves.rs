@@ -1,82 +1,97 @@
-use std::collections::HashSet;
+use std::collections::VecDeque;
+
+use smallvec::{SmallVec, smallvec};
 
 use crate::{model::moves::Move, model::state::State};
 
+// This is an encoded sequence of basic moves.
+// It is encoded using a power series with move indices.
+// Due to the chosen size of the encoding, the sequences can
+// be of length at most 15.
 pub struct Moves {
-    moves: Vec<(Move, usize, State)>,
+    encoded: u64,
 }
 
 impl Moves {
-    pub fn to_depth(depth: usize) -> Self {
-        if depth == 0 {
-            return Self { moves: vec![] };
-        }
-        let mut moves = vec![];
-        let mut states_to_check = vec![(State::SOLVED, usize::MAX)];
-        let mut visited = HashSet::from([State::SOLVED]);
-        for _ in 0..depth {
-            let mut next_states_to_check = Vec::new();
-            for (state, last_mv) in states_to_check.drain(..) {
-                for mv in Move::BASIC_MOVES {
-                    let next_state = state.mv(mv);
-                    if visited.insert(next_state) {
-                        next_states_to_check.push((next_state, moves.len()));
-                        moves.push((mv, last_mv, next_state));
-                    }
-                }
-            }
-            states_to_check.append(&mut next_states_to_check);
-        }
-        Self { moves }
+    pub fn from_encoding(encoded: u64) -> Self {
+        Self { encoded }
     }
 
-    pub fn count(&self) -> usize {
-        self.moves.len()
+    const EMPTY: Moves = Self { encoded: 0 };
+
+    pub fn from_move(mv: Move) -> Self {
+        Self {
+            encoded: mv.index() as u64 + 1,
+        }
     }
 
-    pub fn iter<'a>(&'a self) -> MoveIter<'a> {
-        MoveIter {
-            moves: &self.moves,
-            idx: 0,
+    pub fn from_moves(moves: impl Iterator<Item = Move>) -> Self {
+        let mut result = Self::EMPTY;
+        let mut count = 0;
+        for mv in moves {
+            result = result.append(mv);
+            count += 1;
+        }
+        assert!(
+            count <= 15,
+            "cannot encode sequences with more than 15 moves"
+        );
+        result
+    }
+
+    pub fn append(&self, mv: Move) -> Self {
+        Self {
+            encoded: 19 * self.encoded + mv.index() as u64 + 1,
+        }
+    }
+
+    pub fn moves(&self) -> SmallVec<[Move; 15]> {
+        let mut result = smallvec![];
+        let mut encoding = self.encoded;
+        while encoding > 0 {
+            result.push(Move::BASIC_MOVES[((encoding % 19) - 1) as usize]);
+            encoding /= 19;
+        }
+        result.reverse();
+        result
+    }
+
+    pub fn to_depth(d: u8) -> MovesIter {
+        MovesIter {
+            next: VecDeque::from([(Moves::EMPTY, State::SOLVED)]),
+            max: 19_u64.pow(d as u32),
         }
     }
 }
 
-pub struct MoveIter<'a> {
-    moves: &'a [(Move, usize, State)],
-    idx: usize,
+pub struct MovesIter {
+    next: VecDeque<(Moves, State)>,
+    max: u64,
 }
 
-impl<'a> Iterator for MoveIter<'a> {
-    type Item = (Vec<Move>, State);
+impl Iterator for MovesIter {
+    type Item = (Moves, State);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.idx >= self.moves.len() {
-            return None;
-        }
-        let mut result = Vec::new();
-        let mut idx = self.idx;
-        let state = self.moves[idx].2;
-        loop {
-            let (mv, last_idx, _) = self.moves[idx];
-            result.push(mv);
-            if last_idx == usize::MAX {
-                break;
+        self.next.pop_front().map(|(moves, state)| {
+            if 19 * moves.encoded < self.max {
+                for mv in Move::BASIC_MOVES {
+                    self.next.push_back((moves.append(mv), state.mv(mv)));
+                }
             }
-            idx = last_idx;
-        }
-        self.idx += 1;
-        result.reverse();
-        Some((result, state))
+            (moves, state)
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use crate::algo::moves::Moves;
 
     #[test]
     fn unique_moves_to_depth_5() {
-        assert_eq!(Moves::to_depth(5).count(), 621648);
+        assert_eq!(Moves::to_depth(5).unique_by(|&(_, s)| s).count(), 621649);
     }
 }
