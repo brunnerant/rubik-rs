@@ -1,7 +1,7 @@
 use rubik_lib::{
     algo::{
+        moves::Moves,
         trie::{TrieBuilder, TriePtr},
-        util::Moves,
     },
     model::state::State,
 };

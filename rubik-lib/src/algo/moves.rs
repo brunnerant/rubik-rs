@@ -73,7 +73,7 @@ impl<'a> Iterator for MoveIter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::algo::util::Moves;
+    use crate::algo::moves::Moves;
 
     #[test]
     fn unique_moves_to_depth_5() {

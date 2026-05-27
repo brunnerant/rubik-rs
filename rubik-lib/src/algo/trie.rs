@@ -285,7 +285,7 @@ impl std::cmp::Ord for State {
 #[cfg(test)]
 mod tests {
     use crate::{
-        algo::trie::TrieBuilder, algo::util::Moves, model::moves::Move, model::state::State,
+        algo::moves::Moves, algo::trie::TrieBuilder, model::moves::Move, model::state::State,
     };
 
     #[test]

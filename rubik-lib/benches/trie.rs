@@ -1,7 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group};
-use rubik_lib::algo::{trie::TrieBuilder, util::Moves};
+use rubik_lib::algo::{moves::Moves, trie::TrieBuilder};
 
 criterion_group!(trie, bench_iter);
 

@@ -1,6 +1,6 @@
 use std::env::args;
 
-use rubik_lib::algo::util::Moves;
+use rubik_lib::algo::moves::Moves;
 
 fn main() {
     const DEFAULT_DEPTH: usize = 5;
