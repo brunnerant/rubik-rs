@@ -2,7 +2,7 @@ use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group};
 use itertools::iproduct;
-use rubik_lib::{moves::Move, state::State};
+use rubik_lib::model::{moves::Move, state::State};
 
 criterion_group!(state, bench_mv, bench_composition);
 

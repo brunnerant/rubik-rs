@@ -193,7 +193,7 @@ impl Move {
 
 #[cfg(test)]
 mod tests {
-    use crate::moves::Move;
+    use crate::model::moves::Move;
 
     #[test]
     fn move_display() {

@@ -1,7 +1,7 @@
 use std::env::args;
 
 use itertools::join;
-use rubik_lib::util::Moves;
+use rubik_lib::algo::util::Moves;
 
 fn main() {
     const DEFAULT_DEPTH: usize = 5;

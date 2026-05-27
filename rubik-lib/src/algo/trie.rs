@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::state::State;
+use crate::model::state::State;
 
 pub struct TrieBuilder {
     branches: Vec<usize>,
@@ -284,7 +284,9 @@ impl std::cmp::Ord for State {
 
 #[cfg(test)]
 mod tests {
-    use crate::{moves::Move, state::State, trie::TrieBuilder, util::Moves};
+    use crate::{
+        algo::trie::TrieBuilder, algo::util::Moves, model::moves::Move, model::state::State,
+    };
 
     #[test]
     fn trie_normal_ordering() {

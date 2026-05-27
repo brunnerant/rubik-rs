@@ -1,4 +1,7 @@
-use crate::moves::{Direction, Face, Move};
+use crate::{
+    model::moves::Axis,
+    model::moves::{Direction, Face, Move},
+};
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash)]
 pub struct State {
@@ -143,9 +146,9 @@ impl State {
                     Face::Front => [0, 1, 6, 7, 4, 5, 3, 2, 8, 9, 10, 11],
                 };
                 let axis = match mv.face.axis_and_sign().0 {
-                    crate::moves::Axis::X => 0,
-                    crate::moves::Axis::Y => 1,
-                    crate::moves::Axis::Z => 2,
+                    Axis::X => 0,
+                    Axis::Y => 1,
+                    Axis::Z => 2,
                 };
                 let inv = mv.dir == Direction::CounterClockwise;
                 Self {
@@ -251,8 +254,8 @@ mod tests {
     use itertools::iproduct;
 
     use crate::{
-        moves::{Direction, Face, Move},
-        state::State,
+        model::moves::{Direction, Face, Move},
+        model::state::State,
     };
 
     fn assert_distinct<T: Eq + Hash>(iter: impl Iterator<Item = T>) {

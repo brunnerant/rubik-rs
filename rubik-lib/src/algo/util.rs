@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{moves::Move, state::State};
+use crate::{model::moves::Move, model::state::State};
 
 pub struct Moves {
     moves: Vec<(Move, usize, State)>,
@@ -73,7 +73,7 @@ impl<'a> Iterator for MoveIter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::util::Moves;
+    use crate::algo::util::Moves;
 
     #[test]
     fn unique_moves_to_depth_5() {
