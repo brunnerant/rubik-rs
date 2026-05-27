@@ -25,7 +25,7 @@ impl Moves {
         }
     }
 
-    pub fn from_moves(moves: impl Iterator<Item = Move>) -> Self {
+    pub fn from_moves(moves: impl IntoIterator<Item = Move>) -> Self {
         let mut result = Self::EMPTY;
         let mut count = 0;
         for mv in moves {
@@ -53,6 +53,16 @@ impl Moves {
             encoding /= 19;
         }
         result.reverse();
+        result
+    }
+
+    pub fn inv_moves(&self) -> SmallVec<[Move; 15]> {
+        let mut result = smallvec![];
+        let mut encoding = self.encoded;
+        while encoding > 0 {
+            result.push(Move::BASIC_MOVES[((encoding % 19) - 1) as usize].inv());
+            encoding /= 19;
+        }
         result
     }
 
@@ -87,11 +97,36 @@ impl Iterator for MovesIter {
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
+    use smallvec::{SmallVec, smallvec};
 
-    use crate::algo::moves::Moves;
+    use crate::{
+        algo::moves::Moves,
+        model::{moves::Move, state::State},
+    };
 
     #[test]
     fn unique_moves_to_depth_5() {
         assert_eq!(Moves::to_depth(5).unique_by(|&(_, s)| s).count(), 621649);
+    }
+
+    #[test]
+    fn from_moves() {
+        let moves_orig: SmallVec<[_; 15]> = smallvec![Move::F, Move::B_, Move::L];
+        let moves = Moves::from_moves(moves_orig.clone());
+        assert_eq!(moves_orig, moves.moves());
+    }
+
+    #[test]
+    fn inv_moves() {
+        let moves = Moves::from_moves([Move::F, Move::B_, Move::L]);
+        let state = moves
+            .moves()
+            .into_iter()
+            .fold(State::ID, |state, mv| state.mv(mv));
+        let inv_state = moves
+            .inv_moves()
+            .into_iter()
+            .fold(State::ID, |state, mv| state.mv(mv));
+        assert_eq!(state.inv(), inv_state);
     }
 }

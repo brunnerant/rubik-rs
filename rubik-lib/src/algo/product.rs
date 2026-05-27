@@ -62,18 +62,19 @@ impl Product {
 }
 
 impl Iterator for Product {
-    type Item = (State, State);
+    type Item = (State, State, State);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.queue.pop().map(|mut entry| {
             let left = entry.left;
             let right = entry.right;
+            let product = entry.product;
             if let Some(state) = entry.left_iter.next(&self.trie) {
                 entry.left = state;
                 entry.product = entry.left * entry.right;
                 self.queue.push(entry);
             };
-            (left, right)
+            (left, right, product)
         })
     }
 }
@@ -88,10 +89,7 @@ mod tests {
     };
 
     fn states_to_depth(d: u8) -> Vec<State> {
-        Moves::to_depth(d)
-            .unique_by(|&(_, s)| s)
-            .map(|(_, s)| s)
-            .collect()
+        Moves::to_depth(d).map(|(_, s)| s).unique().collect()
     }
 
     #[test]
@@ -102,7 +100,7 @@ mod tests {
         sorted_full.sort();
 
         let half_squared: Vec<_> = Product::sorted(half.iter().cloned(), half.iter().cloned())
-            .map(|(l, r)| l * r)
+            .map(|(_, _, p)| p)
             .unique()
             .collect();
         assert_eq!(half_squared, sorted_full);

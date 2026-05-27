@@ -294,10 +294,7 @@ mod tests {
     };
 
     fn states_to_depth(d: u8) -> Vec<State> {
-        Moves::to_depth(d)
-            .unique_by(|&(_, s)| s)
-            .map(|(_, s)| s)
-            .collect()
+        Moves::to_depth(d).map(|(_, s)| s).unique().collect()
     }
 
     #[test]
