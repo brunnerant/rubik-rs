@@ -10,6 +10,7 @@ smallvec = { version = "1.15.1", features = ["union"] }
 
 [dev-dependencies]
 criterion = "0.8.2"
+rand = "0.10.1"
 
 [[bench]]
 name = "main"
