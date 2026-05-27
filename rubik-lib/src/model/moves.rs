@@ -54,6 +54,17 @@ impl Face {
             Face::Front => (Axis::Z, true),
         }
     }
+
+    pub fn index(&self) -> u8 {
+        match self {
+            Face::Left => 0,
+            Face::Right => 1,
+            Face::Down => 2,
+            Face::Up => 3,
+            Face::Back => 4,
+            Face::Front => 5,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,6 +88,14 @@ impl Direction {
             Direction::Clockwise => "",
             Direction::CounterClockwise => "'",
             Direction::HalfTurn => "2",
+        }
+    }
+
+    pub fn index(&self) -> u8 {
+        match self {
+            Direction::Clockwise => 0,
+            Direction::CounterClockwise => 1,
+            Direction::HalfTurn => 2,
         }
     }
 }
@@ -115,6 +134,10 @@ impl Move {
             face: self.face,
             dir: self.dir.inverse(),
         }
+    }
+
+    pub fn index(&self) -> u8 {
+        self.face.index() * 3 + self.dir.index()
     }
 
     pub const L: Move = Move {
@@ -205,5 +228,12 @@ mod tests {
         assert_eq!(Move::F.to_string(), "F");
         assert_eq!(Move::F_.to_string(), "F'");
         assert_eq!(Move::F2.to_string(), "F2");
+    }
+
+    #[test]
+    fn move_index() {
+        for i in 0..Move::BASIC_MOVES.len() {
+            assert_eq!(i as u8, Move::BASIC_MOVES[i].index());
+        }
     }
 }
