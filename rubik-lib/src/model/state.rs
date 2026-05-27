@@ -3,7 +3,7 @@ use crate::{
     model::moves::{Direction, Face, Move},
 };
 
-#[derive(PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct State {
     /// Each corner contains its position (3 bits) and orientation (2 bits), compared to the solved cube.
     ///
