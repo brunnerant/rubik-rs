@@ -48,7 +48,7 @@ pub struct State {
 
 impl State {
     /// The state of a solved cube.
-    pub const SOLVED: Self = Self {
+    pub const ID: Self = Self {
         corners: 0b_11100_11000_10100_10000_01100_01000_00100_00000,
         edges: 0b_10110_10100_10010_10000_01110_01100_01010_01000_00110_00100_00010_00000,
     };
@@ -159,7 +159,8 @@ impl State {
         }
     }
 
-    pub fn compose(&self, other: &State) -> State {
+    /// Performs the given permutation after this permutation.
+    pub fn then(&self, other: &State) -> State {
         let mut corners = 0;
         for i in 0..8 {
             let mut pos = i;
@@ -197,7 +198,7 @@ impl State {
         State { corners, edges }
     }
 
-    pub fn invert(&self) -> State {
+    pub fn inv(&self) -> State {
         let mut corners = 0;
         for i in 0..8 {
             let pos = Self::get_block(self.corners, 5 * i + 2, 3) as u8;
@@ -215,6 +216,14 @@ impl State {
         }
 
         State { corners, edges }
+    }
+}
+
+impl std::ops::Mul for State {
+    type Output = State;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        rhs.then(&self)
     }
 }
 
@@ -270,28 +279,20 @@ mod tests {
     #[test]
     fn double_double_rotation_cancel() {
         for mv in [Move::L2, Move::R2, Move::D2, Move::U2, Move::B2, Move::F2] {
-            assert_eq!(State::SOLVED.mv(mv).mv(mv), State::SOLVED);
+            assert_eq!(State::ID.mv(mv).mv(mv), State::ID);
         }
     }
 
     #[test]
     fn all_moves_are_distinct() {
-        assert_distinct(
-            Move::BASIC_MOVES
-                .iter()
-                .map(|&mv| State::SOLVED.mv(mv).corners),
-        );
-        assert_distinct(
-            Move::BASIC_MOVES
-                .iter()
-                .map(|&mv| State::SOLVED.mv(mv).edges),
-        );
+        assert_distinct(Move::BASIC_MOVES.iter().map(|&mv| State::ID.mv(mv).corners));
+        assert_distinct(Move::BASIC_MOVES.iter().map(|&mv| State::ID.mv(mv).edges));
     }
 
     #[test]
     fn inverse_move_cancels() {
         for mv in Move::BASIC_MOVES {
-            assert_eq!(State::SOLVED.mv(mv).mv(mv.inverse()), State::SOLVED);
+            assert_eq!(State::ID.mv(mv).mv(mv.inv()), State::ID);
         }
     }
 
@@ -302,13 +303,13 @@ mod tests {
                 face,
                 dir: Direction::Clockwise,
             };
-            let qi = q.inverse();
+            let qi = q.inv();
             let h = Move {
                 face,
                 dir: Direction::HalfTurn,
             };
-            assert_eq!(State::SOLVED.mv(q).mv(q), State::SOLVED.mv(h));
-            assert_eq!(State::SOLVED.mv(qi).mv(qi), State::SOLVED.mv(h));
+            assert_eq!(State::ID.mv(q).mv(q), State::ID.mv(h));
+            assert_eq!(State::ID.mv(qi).mv(qi), State::ID.mv(h));
         }
     }
 
@@ -319,33 +320,42 @@ mod tests {
                 face,
                 dir: Direction::Clockwise,
             };
-            let qi = q.inverse();
-            assert_eq!(State::SOLVED.mv(q).mv(q).mv(q).mv(q), State::SOLVED);
-            assert_eq!(State::SOLVED.mv(qi).mv(qi).mv(qi).mv(qi), State::SOLVED);
+            let qi = q.inv();
+            assert_eq!(State::ID.mv(q).mv(q).mv(q).mv(q), State::ID);
+            assert_eq!(State::ID.mv(qi).mv(qi).mv(qi).mv(qi), State::ID);
         }
     }
 
     #[test]
     fn state_composition() {
         let basic_moves = Move::BASIC_MOVES;
-        let basic_states = basic_moves.map(|m| State::SOLVED.mv(m));
+        let basic_states = basic_moves.map(|m| State::ID.mv(m));
 
         for (i, j) in iproduct!(0..18, 0..18) {
-            let state1 = State::SOLVED.mv(basic_moves[i]).mv(basic_moves[j]);
-            let state2 = basic_states[i].compose(&basic_states[j]);
+            let state1 = State::ID.mv(basic_moves[i]).mv(basic_moves[j]);
+            let state2 = basic_states[i].then(&basic_states[j]);
+            let state3 = basic_states[j] * basic_states[i];
             assert_eq!(state1, state2, "{:?} != {:?}", state1, state2);
+            assert_eq!(state1, state2, "{:?} != {:?}", state1, state3);
         }
     }
 
     #[test]
     fn state_inversion() {
         for (i, j) in iproduct!(0..18, 0..18) {
-            let state = State::SOLVED
-                .mv(Move::BASIC_MOVES[i])
-                .mv(Move::BASIC_MOVES[j]);
-            let inv = state.invert();
-            assert_eq!(state.compose(&inv), State::SOLVED);
-            assert_eq!(inv.compose(&state), State::SOLVED);
+            let state = State::ID.mv(Move::BASIC_MOVES[i]).mv(Move::BASIC_MOVES[j]);
+            let inv = state.inv();
+            assert_eq!(state * inv, State::ID);
+            assert_eq!(inv * state, State::ID);
+        }
+    }
+
+    #[test]
+    fn state_idempotence() {
+        for mv in Move::BASIC_MOVES {
+            let state = State::ID.mv(mv);
+            assert_eq!(state, state * State::ID);
+            assert_eq!(state, State::ID * state);
         }
     }
 }

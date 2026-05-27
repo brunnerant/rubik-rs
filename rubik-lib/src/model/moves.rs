@@ -75,7 +75,7 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn inverse(&self) -> Self {
+    pub fn inv(&self) -> Self {
         match self {
             Direction::Clockwise => Direction::CounterClockwise,
             Direction::CounterClockwise => Direction::Clockwise,
@@ -129,10 +129,10 @@ impl Move {
         Self::F2,
     ];
 
-    pub fn inverse(&self) -> Self {
+    pub fn inv(&self) -> Self {
         Self {
             face: self.face,
-            dir: self.dir.inverse(),
+            dir: self.dir.inv(),
         }
     }
 

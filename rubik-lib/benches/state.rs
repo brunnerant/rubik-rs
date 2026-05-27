@@ -13,14 +13,14 @@ pub fn bench_mv(c: &mut Criterion) {
     g.bench_function("mv", |b| {
         b.iter(|| {
             for m in basic_moves {
-                black_box(State::SOLVED.mv(m));
+                black_box(State::ID.mv(m));
             }
         })
     });
 }
 
 pub fn bench_composition(c: &mut Criterion) {
-    let basic_states = Move::BASIC_MOVES.map(|m| State::SOLVED.mv(m));
+    let basic_states = Move::BASIC_MOVES.map(|m| State::ID.mv(m));
     let mut g = c.benchmark_group("state");
     g.throughput(Throughput::Elements(
         (basic_states.len() * basic_states.len()) as u64,
@@ -28,7 +28,7 @@ pub fn bench_composition(c: &mut Criterion) {
     g.bench_function("compose", |b| {
         b.iter(|| {
             for (a, b) in iproduct!(basic_states, basic_states) {
-                black_box(a.compose(&b));
+                black_box(a.then(&b));
             }
         })
     });

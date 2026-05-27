@@ -157,9 +157,10 @@ impl Trie {
     }
 }
 
+#[derive(PartialEq, Eq)]
 pub struct TriePtr {
     coset: State,
-    stack: SmallVec<[u64; 13]>,
+    stack: SmallVec<[u64; 13]>, // 13 is chosen so that size_of::<TriePtr>() == 128
 }
 
 impl TriePtr {
@@ -251,7 +252,7 @@ impl<'a> Iterator for TrieIter<'a> {
 
 impl Trie {
     pub fn ordered<'a>(&'a self) -> TrieIter<'a> {
-        self.ordered_coset(State::SOLVED)
+        self.ordered_coset(State::ID)
     }
 
     pub fn ordered_coset<'a>(&'a self, coset: State) -> TrieIter<'a> {
@@ -313,26 +314,26 @@ mod tests {
     #[test]
     fn trie_coset_ordering1() {
         let mut trie = TrieBuilder::new();
-        let state1 = State::SOLVED;
+        let state1 = State::ID;
         let state2 = state1.mv(Move::F);
         let state3 = state1.mv(Move::F_);
         trie.insert(state1);
         trie.insert(state2);
         trie.insert(state3);
         let trie = trie.build();
-        let states: Vec<State> = trie.ordered_coset(State::SOLVED.mv(Move::F_)).collect();
+        let states: Vec<State> = trie.ordered_coset(State::ID.mv(Move::F_)).collect();
         assert_eq!(states, vec![state2, state1, state3]);
     }
 
     #[test]
     fn trie_coset_ordering2() {
         let mut trie = TrieBuilder::new();
-        let state1 = State::SOLVED.mv(Move::D_);
-        let state2 = State::SOLVED.mv(Move::L);
+        let state1 = State::ID.mv(Move::D_);
+        let state2 = State::ID.mv(Move::L);
         trie.insert(state1);
         trie.insert(state2);
         let trie = trie.build();
-        let states: Vec<State> = trie.ordered_coset(State::SOLVED.mv(Move::F)).collect();
+        let states: Vec<State> = trie.ordered_coset(State::ID.mv(Move::F)).collect();
         assert_eq!(states, vec![state1, state2]);
     }
 
@@ -343,16 +344,16 @@ mod tests {
         for &state in states.iter() {
             trie.insert(state);
         }
-        let coset = State::SOLVED.mv(Move::F2).mv(Move::U);
+        let coset = State::ID.mv(Move::F2).mv(Move::U);
         for state in states.iter_mut() {
-            *state = coset.compose(state);
+            *state = coset.then(state);
         }
         let trie = trie.build();
         states.sort();
         assert_eq!(
             states,
             trie.ordered_coset(coset)
-                .map(|s| coset.compose(&s))
+                .map(|s| coset.then(&s))
                 .collect::<Vec<_>>()
         );
     }

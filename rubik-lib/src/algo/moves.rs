@@ -58,7 +58,7 @@ impl Moves {
 
     pub fn to_depth(d: u8) -> MovesIter {
         MovesIter {
-            next: VecDeque::from([(Moves::EMPTY, State::SOLVED)]),
+            next: VecDeque::from([(Moves::EMPTY, State::ID)]),
             max: 19_u64.pow(d as u32),
         }
     }

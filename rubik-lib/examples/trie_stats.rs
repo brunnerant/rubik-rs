@@ -19,7 +19,7 @@ fn main() {
     let mut depth: usize = 0;
     let mut max_depth = 0;
     let mut count2: usize = 0;
-    let mut ptr = TriePtr::first(State::SOLVED);
+    let mut ptr = TriePtr::first(State::ID);
     while ptr.next(&trie).is_some() {
         max_depth = max_depth.max(ptr.depth());
         depth += ptr.depth() as usize;
