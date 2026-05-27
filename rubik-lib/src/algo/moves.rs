@@ -4,10 +4,10 @@ use smallvec::{SmallVec, smallvec};
 
 use crate::{model::moves::Move, model::state::State};
 
-// This is an encoded sequence of basic moves.
-// It is encoded using a power series with move indices.
-// Due to the chosen size of the encoding, the sequences can
-// be of length at most 15.
+/// An encoded sequence of basic moves.
+/// It is encoded using a power series with move indices.
+/// Due to the chosen size of the encoding, the sequences can
+/// be of length at most 15.
 pub struct Moves {
     encoded: u64,
 }

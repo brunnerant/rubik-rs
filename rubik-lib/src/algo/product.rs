@@ -5,7 +5,7 @@ use crate::{
     model::state::State,
 };
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 struct Entry {
     left_iter: TriePtr,
     left: State,
@@ -37,6 +37,7 @@ impl std::cmp::PartialOrd for Entry {
     }
 }
 
+#[derive(Clone)]
 pub struct Product {
     trie: Trie,
     queue: BinaryHeap<Entry>,

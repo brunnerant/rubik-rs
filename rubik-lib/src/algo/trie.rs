@@ -14,6 +14,7 @@ pub struct TrieBuilder {
 // - 4 bits for each possible child
 //   - if 0, no child
 //   - if >0, points to relative u64 that points to child
+#[derive(Clone)]
 pub struct Trie {
     branches: Vec<u64>,
     states: Vec<State>,
@@ -157,7 +158,7 @@ impl Trie {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct TriePtr {
     coset: State,
     stack: SmallVec<[u64; 13]>, // 13 is chosen so that size_of::<TriePtr>() == 128
