@@ -265,7 +265,7 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
-        algo::trie::TrieBuilder,
+        algo::four_list::trie::TrieBuilder,
         model::{
             moves::{Move, Moves},
             state::State,

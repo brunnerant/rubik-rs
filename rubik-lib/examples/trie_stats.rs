@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use rubik_lib::{
-    algo::trie::{TrieBuilder, TriePtr},
+    algo::four_list::trie::{TrieBuilder, TriePtr},
     model::{moves::Moves, state::State},
 };
 

@@ -3,8 +3,11 @@ use std::collections::HashMap;
 use itertools::Itertools;
 use smallvec::{SmallVec, smallvec};
 
+pub mod product;
+pub mod trie;
+
 use crate::{
-    algo::product::Product,
+    algo::four_list::product::Product,
     model::{
         moves::{Move, Moves},
         state::State,

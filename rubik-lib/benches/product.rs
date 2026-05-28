@@ -3,7 +3,7 @@ use std::hint::black_box;
 use criterion::{Criterion, Throughput, criterion_group};
 use itertools::Itertools;
 use rubik_lib::{
-    algo::product::Product,
+    algo::four_list::product::Product,
     model::{moves::Moves, state::State},
 };
 

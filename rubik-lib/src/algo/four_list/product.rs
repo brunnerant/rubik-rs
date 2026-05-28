@@ -1,7 +1,7 @@
 use std::collections::BinaryHeap;
 
 use crate::{
-    algo::trie::{Trie, TrieBuilder, TriePtr},
+    algo::four_list::trie::{Trie, TrieBuilder, TriePtr},
     model::state::State,
 };
 
@@ -99,7 +99,7 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
-        algo::product::Product,
+        algo::four_list::product::Product,
         model::{moves::Moves, state::State},
     };
 
