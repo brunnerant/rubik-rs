@@ -1,6 +1,6 @@
-use crate::{
-    model::moves::Axis,
-    model::moves::{Direction, Face, Move},
+use crate::model::{
+    bits,
+    moves::{Axis, Direction, Face, Move},
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
@@ -52,17 +52,12 @@ impl State {
         edges: 0b_10110_10100_10010_10000_01110_01100_01010_01000_00110_00100_00010_00000,
     };
 
-    pub(crate) fn get_block(data: u64, pos: u8, size: u8) -> u64 {
-        let mask = (1 << size) - 1;
-        (data >> pos) & mask
-    }
-
     fn permute<const N: usize>(array: u64, perm: [u8; N], inv: bool) -> u64 {
         let mut result = 0;
         for (from, to) in perm.into_iter().enumerate() {
             let from = from as u8;
             let (from, to) = if inv { (to, from) } else { (from, to) };
-            result |= Self::get_block(array, 5 * from, 5) << (5 * to);
+            result |= bits::get(array, 5 * from, 5) << (5 * to);
         }
         result
     }
@@ -73,7 +68,7 @@ impl State {
             // position
             let from = from as u8;
             let (from, to) = if inv { (to, from) } else { (from, to) };
-            result |= Self::get_block(array, 5 * from + 2, 3) << (5 * to + 2);
+            result |= bits::get(array, 5 * from + 2, 3) << (5 * to + 2);
             // orientation
             let offset = if axis != 0 && from != to {
                 let dir = (from.count_ones() % 2 == 0) ^ (axis == 2);
@@ -81,7 +76,7 @@ impl State {
             } else {
                 0
             };
-            let old_or = Self::get_block(array, 5 * from, 2);
+            let old_or = bits::get(array, 5 * from, 2);
             let new_or = (old_or + offset) % 3;
             result |= new_or << (5 * to);
         }
@@ -94,10 +89,10 @@ impl State {
             // position
             let from = from as u8;
             let (from, to) = if inv { (to, from) } else { (from, to) };
-            result |= Self::get_block(array, 5 * from + 1, 4) << (5 * to + 1);
+            result |= bits::get(array, 5 * from + 1, 4) << (5 * to + 1);
             // orientation
             let flip = axis == 1 && from != to;
-            result |= (flip as u64 ^ Self::get_block(array, 5 * from, 1)) << (5 * to)
+            result |= (flip as u64 ^ bits::get(array, 5 * from, 1)) << (5 * to)
         }
         result
     }
@@ -163,10 +158,10 @@ impl State {
         let mut corners = 0;
         for i in 0..8 {
             let mut pos = i;
-            let mut ori = Self::get_block(other.corners, 5 * pos, 2);
-            pos = Self::get_block(other.corners, 5 * pos + 2, 3) as u8;
-            ori = (ori + Self::get_block(self.corners, 5 * pos, 2)) % 3;
-            pos = Self::get_block(self.corners, 5 * pos + 2, 3) as u8;
+            let mut ori = bits::get(other.corners, 5 * pos, 2);
+            pos = bits::get(other.corners, 5 * pos + 2, 3) as u8;
+            ori = (ori + bits::get(self.corners, 5 * pos, 2)) % 3;
+            pos = bits::get(self.corners, 5 * pos + 2, 3) as u8;
             corners |= (pos as u64) << (5 * i + 2);
             corners |= ori << (5 * i);
         }
@@ -174,10 +169,10 @@ impl State {
         let mut edges = 0;
         for i in 0..12 {
             let mut pos = i;
-            let mut ori = Self::get_block(other.edges, 5 * pos, 1);
-            pos = Self::get_block(other.edges, 5 * pos + 1, 4) as u8;
-            ori ^= Self::get_block(self.edges, 5 * pos, 1);
-            pos = Self::get_block(self.edges, 5 * pos + 1, 4) as u8;
+            let mut ori = bits::get(other.edges, 5 * pos, 1);
+            pos = bits::get(other.edges, 5 * pos + 1, 4) as u8;
+            ori ^= bits::get(self.edges, 5 * pos, 1);
+            pos = bits::get(self.edges, 5 * pos + 1, 4) as u8;
             edges |= (pos as u64) << (5 * i + 1);
             edges |= ori << (5 * i);
         }
@@ -188,16 +183,16 @@ impl State {
     pub fn inv(&self) -> State {
         let mut corners = 0;
         for i in 0..8 {
-            let pos = Self::get_block(self.corners, 5 * i + 2, 3) as u8;
-            let ori = Self::get_block(self.corners, 5 * i, 2);
+            let pos = bits::get(self.corners, 5 * i + 2, 3) as u8;
+            let ori = bits::get(self.corners, 5 * i, 2);
             corners |= (i as u64) << (5 * pos + 2);
             corners |= ((3 - ori) % 3) << (5 * pos);
         }
 
         let mut edges = 0;
         for i in 0..12 {
-            let pos = Self::get_block(self.edges, 5 * i + 1, 4) as u8;
-            let ori = Self::get_block(self.edges, 5 * i, 1);
+            let pos = bits::get(self.edges, 5 * i + 1, 4) as u8;
+            let ori = bits::get(self.edges, 5 * i, 1);
             edges |= (i as u64) << (5 * pos + 1);
             edges |= ori << (5 * pos);
         }
@@ -220,23 +215,23 @@ impl std::fmt::Debug for State {
         writeln!(f, "corners:")?;
         write!(f, "- permutation:")?;
         for i in 0..8 {
-            write!(f, " {}", State::get_block(self.corners, 5 * i + 2, 3))?;
+            write!(f, " {}", bits::get(self.corners, 5 * i + 2, 3))?;
         }
         writeln!(f)?;
         write!(f, "- orientation:")?;
         for i in 0..8 {
-            write!(f, " {}", State::get_block(self.corners, 5 * i, 2))?;
+            write!(f, " {}", bits::get(self.corners, 5 * i, 2))?;
         }
         writeln!(f)?;
         writeln!(f, "edges:")?;
         write!(f, "- permutation:")?;
         for i in 0..12 {
-            write!(f, " {:02}", State::get_block(self.edges, 5 * i + 1, 4))?;
+            write!(f, " {:02}", bits::get(self.edges, 5 * i + 1, 4))?;
         }
         writeln!(f)?;
         write!(f, "- orientation:")?;
         for i in 0..12 {
-            write!(f, "  {}", State::get_block(self.edges, 5 * i, 1))?;
+            write!(f, "  {}", bits::get(self.edges, 5 * i, 1))?;
         }
         writeln!(f)?;
         Ok(())

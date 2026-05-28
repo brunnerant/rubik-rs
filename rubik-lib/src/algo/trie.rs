@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use smallvec::{SmallVec, smallvec};
 
-use crate::model::state::State;
+use crate::model::{bits, state::State};
 
 pub struct TrieBuilder {
     branches: Vec<usize>,
@@ -41,15 +41,15 @@ impl TrieBuilder {
         let mut branches = [(0, 0); 2 * 8 + 2 * 12];
         let mut b = 0;
         for i in (0..8).rev() {
-            let pos = State::get_block(state.corners, 5 * i + 2, 3);
-            let ori = State::get_block(state.corners, 5 * i, 2);
+            let pos = bits::get(state.corners, 5 * i + 2, 3);
+            let ori = bits::get(state.corners, 5 * i, 2);
             branches[b] = (pos as usize, 8);
             branches[b + 1] = (ori as usize, 3);
             b += 2;
         }
         for i in (0..12).rev() {
-            let pos = State::get_block(state.edges, 5 * i + 1, 4);
-            let ori = State::get_block(state.edges, 5 * i, 1);
+            let pos = bits::get(state.edges, 5 * i + 1, 4);
+            let ori = bits::get(state.edges, 5 * i, 1);
             branches[b] = (pos as usize, 12);
             branches[b + 1] = (ori as usize, 2);
             b += 2;
@@ -170,15 +170,15 @@ impl TriePtr {
         // is inverted but its position is not swapped.
         let mut corners = 0;
         for i in 0..8 {
-            let pos = State::get_block(coset.corners, 5 * i + 2, 3) as u8;
-            let ori = State::get_block(coset.corners, 5 * i, 2);
+            let pos = bits::get(coset.corners, 5 * i + 2, 3) as u8;
+            let ori = bits::get(coset.corners, 5 * i, 2);
             corners |= (i as u64) << (5 * pos + 2);
             corners |= ((3 - ori) % 3) << (5 * i);
         }
         let mut edges = 0;
         for i in 0..12 {
-            let pos = State::get_block(coset.edges, 5 * i + 1, 4) as u8;
-            let ori = State::get_block(coset.edges, 5 * i, 1);
+            let pos = bits::get(coset.edges, 5 * i + 1, 4) as u8;
+            let ori = bits::get(coset.edges, 5 * i, 1);
             edges |= (i as u64) << (5 * pos + 1);
             edges |= ori << (5 * i);
         }
@@ -192,32 +192,28 @@ impl TriePtr {
 
     pub fn next(&mut self, trie: &Trie) -> Option<State> {
         while let Some(&top) = self.stack.last() {
-            let node = State::get_block(top, 0, 56) as usize;
-            let i = State::get_block(top, 60, 4) as u8;
+            let node = bits::get(top, 0, 56) as usize;
+            let i = bits::get(top, 60, 4) as u8;
             let branch = trie.branches[node];
-            let d = State::get_block(branch, 58, 6);
+            let d = bits::get(branch, 58, 6);
             let n = TrieBuilder::max_children(d);
 
             if (i as usize) < n {
                 // Go to the next branch
                 *self.stack.last_mut().unwrap() += 1 << 60;
-                let parent_i = State::get_block(branch, 54, 4) as u8;
+                let parent_i = bits::get(branch, 54, 4) as u8;
                 let j = match (d < 2 * 8, d.is_multiple_of(2)) {
-                    (true, true) => State::get_block(self.coset.corners, 5 * i + 2, 3) as u8,
-                    (true, false) => {
-                        (i + State::get_block(self.coset.corners, 5 * parent_i, 2) as u8) % 3
-                    }
-                    (false, true) => State::get_block(self.coset.edges, 5 * i + 1, 4) as u8,
-                    (false, false) => {
-                        (i + State::get_block(self.coset.edges, 5 * parent_i, 1) as u8) % 2
-                    }
+                    (true, true) => bits::get(self.coset.corners, 5 * i + 2, 3) as u8,
+                    (true, false) => (i + bits::get(self.coset.corners, 5 * parent_i, 2) as u8) % 3,
+                    (false, true) => bits::get(self.coset.edges, 5 * i + 1, 4) as u8,
+                    (false, false) => (i + bits::get(self.coset.edges, 5 * parent_i, 1) as u8) % 2,
                 };
 
                 // Push the child on the stack if it exists
-                let child_idx = State::get_block(branch, 4 * j, 4);
+                let child_idx = bits::get(branch, 4 * j, 4);
                 if child_idx != 0 {
                     let child = trie.branches[node + child_idx as usize];
-                    let leaf = State::get_block(child, 0, 63);
+                    let leaf = bits::get(child, 0, 63);
 
                     // Return the state if the child is a leaf
                     if child != leaf {
