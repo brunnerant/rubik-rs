@@ -145,7 +145,7 @@ impl State {
                     Face::Back => [5, 4, 2, 3, 0, 1, 6, 7, 8, 9, 10, 11],
                     Face::Front => [0, 1, 6, 7, 4, 5, 3, 2, 8, 9, 10, 11],
                 };
-                let axis = match mv.face.axis_and_sign().0 {
+                let axis = match mv.face.axis() {
                     Axis::X => 0,
                     Axis::Y => 1,
                     Axis::Z => 2,

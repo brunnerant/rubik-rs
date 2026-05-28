@@ -16,6 +16,7 @@ pub enum Face {
     Front,
 }
 
+#[derive(PartialEq, Eq)]
 pub enum Axis {
     X,
     Y,
@@ -44,14 +45,14 @@ impl Face {
     ];
 
     /// Returns the axis, and whether the face is positively oriented along that axis.
-    pub fn axis_and_sign(&self) -> (Axis, bool) {
+    pub fn axis(&self) -> Axis {
         match self {
-            Face::Left => (Axis::X, false),
-            Face::Right => (Axis::X, true),
-            Face::Down => (Axis::Y, false),
-            Face::Up => (Axis::Y, true),
-            Face::Back => (Axis::Z, false),
-            Face::Front => (Axis::Z, true),
+            Face::Left => Axis::X,
+            Face::Right => Axis::X,
+            Face::Down => Axis::Y,
+            Face::Up => Axis::Y,
+            Face::Back => Axis::Z,
+            Face::Front => Axis::Z,
         }
     }
 

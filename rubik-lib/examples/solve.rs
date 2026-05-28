@@ -7,10 +7,19 @@ use rubik_lib::{
 
 fn scramble(n: usize) -> (Vec<Move>, State) {
     let mut rng = rand::rng();
-    let mut moves = Vec::with_capacity(n);
+    let mut moves: Vec<Move> = Vec::with_capacity(n);
     let mut state = State::ID;
     for _ in 0..n {
-        let mv = Move::BASIC_MOVES[rng.random_range(0..18)];
+        let mut possible_moves: Vec<_> = Move::BASIC_MOVES.iter().cloned().collect();
+        if let Some(l1) = moves.last() {
+            possible_moves.retain(|mv| mv.face != l1.face);
+        }
+        if let Some([l1, l2]) = moves.last_chunk()
+            && l1.face.axis() == l2.face.axis()
+        {
+            possible_moves.retain(|mv| mv.face.axis() != l1.face.axis());
+        }
+        let mv = possible_moves[rng.random_range(0..possible_moves.len())];
         moves.push(mv);
         state = state.mv(mv);
     }
@@ -18,7 +27,9 @@ fn scramble(n: usize) -> (Vec<Move>, State) {
 }
 
 fn main() {
-    let (_, scrambled) = scramble(100);
+    let (moves, scrambled) = scramble(100);
+    println!("Scrambled the cube:");
+    println!("{}", join(moves.iter().map(Move::to_string), " "));
     let mut solver = Solver::new(scrambled, 5);
     let mut steps = 0;
     let solution = loop {
@@ -29,11 +40,15 @@ fn main() {
         }
         steps += 1;
         let steps_m = steps / 1_000_000;
-        print!("\rSteps: {}M", steps_m);
+        print!("\rSearching... ({}M states searched)", steps_m);
     };
+    println!();
     if let Some(solution) = solution {
         println!("Found solution:");
-        println!("{}", join(solution.iter().map(|mv| mv.to_string()), " "));
+        println!(
+            "{}",
+            join(solution.iter().rev().map(|mv| mv.inv().to_string()), " ")
+        );
     } else {
         println!("No solution found.");
     }
