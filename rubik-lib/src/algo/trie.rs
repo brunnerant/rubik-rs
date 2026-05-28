@@ -158,7 +158,7 @@ impl Trie {
     }
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Clone)]
 pub struct TriePtr {
     coset: State,
     stack: SmallVec<[u64; 13]>, // 13 is chosen so that size_of::<TriePtr>() == 128

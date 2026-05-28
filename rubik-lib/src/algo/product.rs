@@ -5,12 +5,29 @@ use crate::{
     model::state::State,
 };
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Clone)]
 struct Entry {
     left_iter: TriePtr,
     left: State,
     right: State,
+}
+
+#[derive(PartialEq, Eq, Clone)]
+struct HeapElem {
     product: State,
+    idx: usize,
+}
+
+impl std::cmp::Ord for HeapElem {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.product.cmp(&other.product).reverse()
+    }
+}
+
+impl std::cmp::PartialOrd for HeapElem {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Entry {
@@ -20,27 +37,15 @@ impl Entry {
             left_iter,
             left,
             right,
-            product: left * right,
         })
-    }
-}
-
-impl std::cmp::Ord for Entry {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.product.cmp(&other.product).reverse()
-    }
-}
-
-impl std::cmp::PartialOrd for Entry {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
     }
 }
 
 #[derive(Clone)]
 pub struct Product {
     trie: Trie,
-    queue: BinaryHeap<Entry>,
+    entries: Vec<Entry>,
+    queue: BinaryHeap<HeapElem>,
 }
 
 /// Allows to iterate over the cartesian product of states in sorted order.
@@ -51,13 +56,22 @@ impl Product {
             trie.insert(s);
         }
         let trie = trie.build();
+        let mut entries = Vec::new();
         let mut queue = BinaryHeap::new();
         for s in right {
             if let Some(entry) = Entry::first(&trie, s) {
-                queue.push(entry);
+                queue.push(HeapElem {
+                    product: entry.left * entry.right,
+                    idx: entries.len(),
+                });
+                entries.push(entry);
             }
         }
-        Self { trie, queue }
+        Self {
+            trie,
+            entries,
+            queue,
+        }
     }
 }
 
@@ -65,14 +79,15 @@ impl Iterator for Product {
     type Item = (State, State, State);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.queue.pop().map(|mut entry| {
+        self.queue.pop().map(|mut elem| {
+            let entry = &mut self.entries[elem.idx];
             let left = entry.left;
             let right = entry.right;
-            let product = entry.product;
+            let product = elem.product;
             if let Some(state) = entry.left_iter.next(&self.trie) {
                 entry.left = state;
-                entry.product = entry.left * entry.right;
-                self.queue.push(entry);
+                elem.product = entry.left * entry.right;
+                self.queue.push(elem);
             };
             (left, right, product)
         })
