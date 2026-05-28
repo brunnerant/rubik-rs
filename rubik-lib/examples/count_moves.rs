@@ -1,7 +1,7 @@
 use std::env::args;
 
 use itertools::Itertools;
-use rubik_lib::algo::moves::Moves;
+use rubik_lib::model::moves::Moves;
 
 fn main() {
     const DEFAULT_DEPTH: u8 = 5;

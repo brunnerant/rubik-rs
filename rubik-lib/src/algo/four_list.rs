@@ -4,8 +4,11 @@ use itertools::Itertools;
 use smallvec::{SmallVec, smallvec};
 
 use crate::{
-    algo::{moves::Moves, product::Product},
-    model::{moves::Move, state::State},
+    algo::product::Product,
+    model::{
+        moves::{Move, Moves},
+        state::State,
+    },
 };
 
 /// Solves a rubik's cube using the four-list algorithm.

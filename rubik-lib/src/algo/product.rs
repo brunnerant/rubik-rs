@@ -99,8 +99,8 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
-        algo::{moves::Moves, product::Product},
-        model::state::State,
+        algo::product::Product,
+        model::{moves::Moves, state::State},
     };
 
     fn states_to_depth(d: u8) -> Vec<State> {

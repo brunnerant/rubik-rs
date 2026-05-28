@@ -269,7 +269,11 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
-        algo::moves::Moves, algo::trie::TrieBuilder, model::moves::Move, model::state::State,
+        algo::trie::TrieBuilder,
+        model::{
+            moves::{Move, Moves},
+            state::State,
+        },
     };
 
     fn states_to_depth(d: u8) -> Vec<State> {

@@ -1,10 +1,7 @@
 use itertools::Itertools;
 use rubik_lib::{
-    algo::{
-        moves::Moves,
-        trie::{TrieBuilder, TriePtr},
-    },
-    model::state::State,
+    algo::trie::{TrieBuilder, TriePtr},
+    model::{moves::Moves, state::State},
 };
 
 fn main() {

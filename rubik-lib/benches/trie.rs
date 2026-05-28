@@ -2,7 +2,7 @@ use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group};
 use itertools::Itertools;
-use rubik_lib::algo::{moves::Moves, trie::TrieBuilder};
+use rubik_lib::{algo::trie::TrieBuilder, model::moves::Moves};
 
 criterion_group!(trie, bench_iter);
 
