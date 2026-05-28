@@ -7,21 +7,18 @@ use crate::{model::moves::Move, model::state::State};
 /// An encoded sequence of basic moves.
 /// It is encoded using a power series with move indices.
 /// Due to the chosen size of the encoding, the sequences can
-/// be of length at most 15.
+/// be of length at most 30, which should be enough for
+/// most cases.
 pub struct Moves {
-    encoded: u64,
+    encoded: u128,
 }
 
 impl Moves {
-    pub fn from_encoding(encoded: u64) -> Self {
-        Self { encoded }
-    }
-
     const EMPTY: Moves = Self { encoded: 0 };
 
     pub fn from_move(mv: Move) -> Self {
         Self {
-            encoded: mv.index() as u64 + 1,
+            encoded: mv.index() as u128 + 1,
         }
     }
 
@@ -33,15 +30,15 @@ impl Moves {
             count += 1;
         }
         assert!(
-            count <= 15,
-            "cannot encode sequences with more than 15 moves"
+            count <= 30,
+            "cannot encode sequences with more than 30 moves"
         );
         result
     }
 
     pub fn append(&self, mv: Move) -> Self {
         Self {
-            encoded: 19 * self.encoded + mv.index() as u64 + 1,
+            encoded: 19 * self.encoded + mv.index() as u128 + 1,
         }
     }
 
@@ -69,14 +66,14 @@ impl Moves {
     pub fn to_depth(d: u8) -> MovesIter {
         MovesIter {
             next: VecDeque::from([(Moves::EMPTY, State::ID)]),
-            max: 19_u64.pow(d as u32),
+            max: 19_u128.pow(d as u32),
         }
     }
 }
 
 pub struct MovesIter {
     next: VecDeque<(Moves, State)>,
-    max: u64,
+    max: u128,
 }
 
 impl Iterator for MovesIter {
