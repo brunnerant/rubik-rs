@@ -40,9 +40,8 @@ pub struct State {
     /// - 11: (+1 +1, 0)
     ///
     /// The orientation of a corner tells whether it is in its neutral position or flipped.
-    /// To find the neutral position of an edge, consider its two colors and compare it to the two colors of the adjacent center pieces,
-    /// treating opposite colors as identical. Take the common color between those two pairs, and orient the edge such that the color is
-    /// adjacent to the corresponding center piece. If two colors are common between the edge and the center pieces, take either of them.
+    /// An edge is in neutral position if its dominant color is aligned with the adjacent dominant face.
+    /// Dominance is induced by a simple X < Y < Z relation for ordering faces and corresponding colors.
     pub edges: u64,
 }
 
@@ -97,7 +96,7 @@ impl State {
             let (from, to) = if inv { (to, from) } else { (from, to) };
             result |= Self::get_block(array, 5 * from + 1, 4) << (5 * to + 1);
             // orientation
-            let flip = from != to && (Self::get_block(array, 5 * from + 3, 2) as u8) == axis;
+            let flip = axis == 1 && from != to;
             result |= (flip as u64 ^ Self::get_block(array, 5 * from, 1)) << (5 * to)
         }
         result
@@ -174,23 +173,11 @@ impl State {
 
         let mut edges = 0;
         for i in 0..12 {
-            #[inline]
-            fn axes(pos: u8) -> u8 {
-                1 << (pos >> 2)
-            }
-
             let mut pos = i;
-            let mut common_axes = axes(pos);
             let mut ori = Self::get_block(other.edges, 5 * pos, 1);
-
             pos = Self::get_block(other.edges, 5 * pos + 1, 4) as u8;
-            common_axes |= axes(pos);
             ori ^= Self::get_block(self.edges, 5 * pos, 1);
-
             pos = Self::get_block(self.edges, 5 * pos + 1, 4) as u8;
-            common_axes |= axes(pos);
-            ori ^= (common_axes == 0b111) as u64;
-
             edges |= (pos as u64) << (5 * i + 1);
             edges |= ori << (5 * i);
         }
