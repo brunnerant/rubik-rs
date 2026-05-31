@@ -1,14 +1,26 @@
 use std::ops::{BitAnd, Shl, Shr, Sub};
 
-pub fn get<T>(bitfield: T, pos: u8, count: u8) -> T
-where
+pub trait BitField:
+    Copy
+    + Shr<u8, Output = Self>
+    + Shl<u8, Output = Self>
+    + From<u8>
+    + BitAnd<Output = Self>
+    + Sub<Output = Self>
+{
+}
+
+impl<T> BitField for T where
     T: Copy
         + Shr<u8, Output = T>
         + Shl<u8, Output = T>
         + From<u8>
         + BitAnd<Output = T>
-        + Sub<Output = T>,
+        + Sub<Output = T>
 {
+}
+
+pub fn get<T: BitField>(bitfield: T, pos: u8, count: u8) -> T {
     let one = T::from(1);
     let mask = (one << count) - one;
     (bitfield >> pos) & mask

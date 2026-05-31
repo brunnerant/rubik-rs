@@ -52,6 +52,26 @@ impl State {
         edges: 0b_10110_10100_10010_10000_01110_01100_01010_01000_00110_00100_00010_00000,
     };
 
+    /// The corner permutation for corner i.
+    pub fn cp(&self, i: u8) -> u8 {
+        bits::get(self.corners, 5 * i + 2, 3) as u8
+    }
+
+    /// The corner orientation for corner i.
+    pub fn co(&self, i: u8) -> u8 {
+        bits::get(self.corners, 5 * i, 2) as u8
+    }
+
+    /// The edge permutation for edge i.
+    pub fn ep(&self, i: u8) -> u8 {
+        bits::get(self.edges, 5 * i + 1, 4) as u8
+    }
+
+    /// The edge orientation for edge i.
+    pub fn eo(&self, i: u8) -> u8 {
+        bits::get(self.edges, 5 * i, 1) as u8
+    }
+
     fn permute<const N: usize>(array: u64, perm: [u8; N], inv: bool) -> u64 {
         let mut result = 0;
         for (from, to) in perm.into_iter().enumerate() {
@@ -157,7 +177,7 @@ impl State {
     pub fn then(&self, other: &State) -> State {
         let mut corners = 0;
         for i in 0..8 {
-            let pos = bits::get(other.corners, 5 * i + 2, 3) as u8;
+            let pos = other.cp(i);
             let perm = bits::get(self.corners, 5 * pos, 5) as u8;
             corners |= (perm as u64) << (5 * i);
         }
@@ -165,7 +185,7 @@ impl State {
 
         let mut edges = 0;
         for i in 0..12 {
-            let pos = bits::get(other.edges, 5 * i + 1, 4) as u8;
+            let pos = other.ep(i);
             let perm = bits::get(self.edges, 5 * pos, 5) as u8;
             edges |= (perm as u64) << (5 * i);
         }
@@ -174,19 +194,20 @@ impl State {
         State { corners, edges }
     }
 
+    /// Returns the inverse state.
     pub fn inv(&self) -> State {
         let mut corners = 0;
         for i in 0..8 {
-            let pos = bits::get(self.corners, 5 * i + 2, 3) as u8;
-            let ori = bits::get(self.corners, 5 * i, 2);
+            let pos = self.cp(i);
+            let ori = self.co(i) as u64;
             corners |= (i as u64) << (5 * pos + 2);
             corners |= ((3 - ori) % 3) << (5 * pos);
         }
 
         let mut edges = 0;
         for i in 0..12 {
-            let pos = bits::get(self.edges, 5 * i + 1, 4) as u8;
-            let ori = bits::get(self.edges, 5 * i, 1);
+            let pos = self.ep(i);
+            let ori = self.eo(i) as u64;            
             edges |= (i as u64) << (5 * pos + 1);
             edges |= ori << (5 * pos);
         }
@@ -209,23 +230,23 @@ impl std::fmt::Debug for State {
         writeln!(f, "corners:")?;
         write!(f, "- permutation:")?;
         for i in 0..8 {
-            write!(f, " {}", bits::get(self.corners, 5 * i + 2, 3))?;
+            write!(f, " {}", self.cp(i))?;
         }
         writeln!(f)?;
         write!(f, "- orientation:")?;
         for i in 0..8 {
-            write!(f, " {}", bits::get(self.corners, 5 * i, 2))?;
+            write!(f, " {}", self.co(i))?;
         }
         writeln!(f)?;
         writeln!(f, "edges:")?;
         write!(f, "- permutation:")?;
         for i in 0..12 {
-            write!(f, " {:02}", bits::get(self.edges, 5 * i + 1, 4))?;
+            write!(f, " {:02}", self.ep(i))?;
         }
         writeln!(f)?;
         write!(f, "- orientation:")?;
         for i in 0..12 {
-            write!(f, "  {}", bits::get(self.edges, 5 * i, 1))?;
+            write!(f, "  {}", self.eo(i))?;
         }
         writeln!(f)?;
         Ok(())
