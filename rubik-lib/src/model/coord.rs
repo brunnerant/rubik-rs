@@ -59,7 +59,7 @@ impl Coord for CO {
             last_ori += ori;
             coord /= 3;
         }
-        corners |= ((last_ori % 3) as u64) << 35;
+        corners |= (((300 - last_ori) % 3) as u64) << 35;
         State {
             corners,
             edges: State::ID.edges,
@@ -120,6 +120,18 @@ impl LR {
         1, 0, 0, 0, 1, 1, 0, 0, 1, 2, 1, 0, 1, 3, 3, 1, 1, 4, 6, 4, 1, 5, 10, 10, 1, 6, 15, 20, 1,
         7, 21, 35, 1, 8, 28, 56, 1, 9, 36, 84, 1, 10, 45, 120, 1, 11, 55, 165,
     ];
+
+    fn is_even(mut perm: [u8; 12]) -> bool {
+        let mut even = true;
+        for i in 0..12 {
+            while perm[i] != i as u8 {
+                let j = perm[i];
+                perm.swap(i, j as usize);
+                even = !even;
+            }
+        }
+        even
+    }
 }
 
 impl Coord for LR {
@@ -177,18 +189,27 @@ impl Coord for LR {
             n -= 1;
         }
 
-        let mut taken_i = 1;
-        let mut not_taken_i = 21;
-        let mut edges = 0;
+        let mut taken_i = 0;
+        let mut not_taken_i = 4;
+        let mut perm = [0; 12];
         for (i, tk) in taken.into_iter().enumerate() {
             if tk {
-                edges |= (i as u64) << taken_i;
-                taken_i += 5;
+                perm[taken_i] = i as u8;
+                taken_i += 1;
             } else {
-                edges |= (i as u64) << not_taken_i;
-                not_taken_i += 5;
+                perm[not_taken_i] = i as u8;
+                not_taken_i += 1;
             }
         }
+        if !Self::is_even(perm) {
+            perm.swap(0, 1);
+        }
+
+        let mut edges = 0;
+        for (i, j) in perm.into_iter().enumerate() {
+            edges |= (j as u64) << (5 * i + 1);
+        }
+
         State {
             corners: State::ID.corners,
             edges,
@@ -215,6 +236,7 @@ mod tests {
                 let coord = C::from_repr(repr);
                 assert_eq!(coord.repr(), repr);
                 let state = coord.sample_state();
+                assert!(state.valid(), "{:?} {:?}", coord, state);
                 assert_eq!(coord, C::from_state(&state), "{:?}", state);
                 states.insert(state);
             }

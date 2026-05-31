@@ -72,6 +72,56 @@ impl State {
         bits::get(self.edges, 5 * i, 1) as u8
     }
 
+    /// Whether this state is valid. A state is valid if:
+    /// - the edges and corners permutations are even
+    /// - the corner orientations sum up to 0 mod 3
+    /// - the edge orientations sum up to 0 mod 2
+    pub fn valid(&self) -> bool {
+        let mut corner_ori = 0;
+        let mut corners = [0; 8];
+        for i in 0..8 {
+            let ori = self.co(i);
+            if ori > 2 {
+                return false;
+            }
+            corner_ori += ori;
+            corners[i as usize] = self.cp(i);
+        }
+        let mut edge_ori = 0;
+        let mut edges = [0; 12];
+        for i in 0..12 {
+            edge_ori += self.eo(i);
+            edges[i as usize] = self.ep(i);
+        }
+
+        let mut even = true;
+        corner_ori.is_multiple_of(3)
+            && edge_ori.is_multiple_of(2)
+            && Self::valid_perm(corners, &mut even)
+            && Self::valid_perm(edges, &mut even)
+            && even
+    }
+
+    fn valid_perm<const N: usize>(mut perm: [u8; N], even: &mut bool) -> bool {
+        let mut present = [false; N];
+        for i in 0..N {
+            present[perm[i] as usize] = true;
+        }
+        if !present.into_iter().all(|p| p) {
+            return false;
+        }
+
+        for i in 0..N {
+            while perm[i] != i as u8 {
+                let j = perm[i];
+                perm.swap(i, j as usize);
+                *even = !*even;
+            }
+        }
+
+        true
+    }
+
     fn permute<const N: usize>(array: u64, perm: [u8; N], inv: bool) -> u64 {
         let mut result = 0;
         for (from, to) in perm.into_iter().enumerate() {
@@ -332,6 +382,7 @@ mod tests {
             let state1 = State::ID.mv(basic_moves[i]).mv(basic_moves[j]);
             let state2 = basic_states[i].then(&basic_states[j]);
             let state3 = basic_states[j] * basic_states[i];
+            assert!(state1.valid());
             assert_eq!(state1, state2, "{:?} != {:?}", state1, state2);
             assert_eq!(state1, state2, "{:?} != {:?}", state1, state3);
         }
@@ -342,6 +393,8 @@ mod tests {
         for (i, j) in iproduct!(0..18, 0..18) {
             let state = State::ID.mv(Move::BASIC_MOVES[i]).mv(Move::BASIC_MOVES[j]);
             let inv = state.inv();
+            assert!(state.valid());
+            assert!(inv.valid());
             assert_eq!(state * inv, State::ID);
             assert_eq!(inv * state, State::ID);
         }
@@ -349,6 +402,7 @@ mod tests {
 
     #[test]
     fn state_idempotence() {
+        assert!(State::ID.valid());
         for mv in Move::BASIC_MOVES {
             let state = State::ID.mv(mv);
             assert_eq!(state, state * State::ID);
