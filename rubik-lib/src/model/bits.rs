@@ -1,29 +1,13 @@
-use std::ops::{BitAnd, Shl, Shr, Sub};
+use num::PrimInt;
 
-pub trait BitField:
-    Copy
-    + Shr<u8, Output = Self>
-    + Shl<u8, Output = Self>
-    + From<u8>
-    + BitAnd<Output = Self>
-    + Sub<Output = Self>
-{
-}
+pub trait BitField: PrimInt {}
 
-impl<T> BitField for T where
-    T: Copy
-        + Shr<u8, Output = T>
-        + Shl<u8, Output = T>
-        + From<u8>
-        + BitAnd<Output = T>
-        + Sub<Output = T>
-{
-}
+impl<T> BitField for T where T: PrimInt {}
 
 pub fn get<T: BitField>(bitfield: T, pos: u8, count: u8) -> T {
-    let one = T::from(1);
-    let mask = (one << count) - one;
-    (bitfield >> pos) & mask
+    let one = T::one();
+    let mask = (one << (count as usize)) - one;
+    (bitfield >> (pos as usize)) & mask
 }
 
 pub fn bitwise_add_mod_3(a: &mut u64, b: u64) {
