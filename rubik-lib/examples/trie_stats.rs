@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use rubik_lib::{
-    algo::four_list::trie::{TrieBuilder, TriePtr},
     model::{moves::Moves, state::State},
+    solve::four_list::trie::{TrieBuilder, TriePtr},
 };
 
 fn main() {

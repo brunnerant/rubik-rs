@@ -207,7 +207,7 @@ impl State {
         let mut edges = 0;
         for i in 0..12 {
             let pos = self.ep(i);
-            let ori = self.eo(i) as u64;            
+            let ori = self.eo(i) as u64;
             edges |= (i as u64) << (5 * pos + 1);
             edges |= ori << (5 * pos);
         }

@@ -7,11 +7,11 @@ pub mod product;
 pub mod trie;
 
 use crate::{
-    algo::four_list::product::Product,
     model::{
         moves::{Move, Moves},
         state::State,
     },
+    solve::four_list::product::Product,
 };
 
 /// Solves a rubik's cube using the four-list algorithm.
@@ -109,8 +109,8 @@ impl Iterator for Solver {
 #[cfg(test)]
 mod tests {
     use crate::{
-        algo::four_list::Solver,
         model::{moves::Move, state::State},
+        solve::four_list::Solver,
     };
 
     fn scramble(n: usize) -> (Vec<Move>, State) {

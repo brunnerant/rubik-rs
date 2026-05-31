@@ -265,11 +265,11 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
-        algo::four_list::trie::TrieBuilder,
         model::{
             moves::{Move, Moves},
             state::State,
         },
+        solve::four_list::trie::TrieBuilder,
     };
 
     fn states_to_depth(d: u8) -> Vec<State> {

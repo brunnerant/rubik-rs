@@ -3,8 +3,8 @@ use std::io::Write;
 use itertools::join;
 use rand::RngExt;
 use rubik_lib::{
-    algo::four_list::Solver,
     model::{moves::Move, state::State},
+    solve::four_list::Solver,
 };
 
 fn scramble(n: usize) -> (Vec<Move>, State) {

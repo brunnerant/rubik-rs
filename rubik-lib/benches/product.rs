@@ -3,8 +3,8 @@ use std::hint::black_box;
 use criterion::{Criterion, Throughput, criterion_group};
 use itertools::Itertools;
 use rubik_lib::{
-    algo::four_list::product::Product,
     model::{moves::Moves, state::State},
+    solve::four_list::product::Product,
 };
 
 criterion_group!(product, bench_product);

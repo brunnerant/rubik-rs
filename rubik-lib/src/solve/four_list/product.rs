@@ -1,8 +1,8 @@
 use std::collections::BinaryHeap;
 
 use crate::{
-    algo::four_list::trie::{Trie, TrieBuilder, TriePtr},
     model::state::State,
+    solve::four_list::trie::{Trie, TrieBuilder, TriePtr},
 };
 
 #[derive(Clone)]
@@ -99,8 +99,8 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
-        algo::four_list::product::Product,
         model::{moves::Moves, state::State},
+        solve::four_list::product::Product,
     };
 
     fn states_to_depth(d: u8) -> Vec<State> {
