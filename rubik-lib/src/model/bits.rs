@@ -19,7 +19,36 @@ pub fn bitwise_add_mod_3(a: &mut u64, b: u64) {
     let ovfl = (sum + one) & (one << 2);
     let not_ovfl = ovfl ^ (one << 2);
     let mask = (not_ovfl >> 1) | (not_ovfl >> 2);
-    *a &= !(one | (one << 1));
+    *a &= !input_mask;
     *a |= sum & mask;
     *a |= (ovfl >> 2) & (sum + one);
+}
+
+pub fn bitwise_inv_mod_3(a: &mut u64) {
+    let one = 0b_00001_00001_00001_00001_00001_00001_00001_00001;
+    let input_mask = one | (one << 1);
+    let ai = *a & input_mask;
+    *a &= !input_mask;
+    *a |= (ai >> 1) & one;
+    *a |= (ai & one) << 1;
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::model::bits::{bitwise_add_mod_3, bitwise_inv_mod_3};
+
+    #[test]
+    fn add_mod_3() {
+        let mut a = 0b_00000_00100_01001_01001_01110_10010;
+        let b = 0b_10100_10110_01001_01110_01110_10001;
+        bitwise_add_mod_3(&mut a, b);
+        assert_eq!(a, 0b_00000_00110_01010_01000_01101_10000);
+    }
+
+    #[test]
+    fn inv_mod_3() {
+        let mut a = 0b_00000_00100_01001_01001_01110_10010;
+        bitwise_inv_mod_3(&mut a);
+        assert_eq!(a, 0b_00000_00100_01010_01010_01101_10001);
+    }
 }

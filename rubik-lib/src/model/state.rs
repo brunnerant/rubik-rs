@@ -141,8 +141,11 @@ impl State {
             result |= bits::get(array, 5 * from + 2, 3) << (5 * to + 2);
             // orientation
             let offset = if axis != 0 && from != to {
-                let dir = (from.count_ones() % 2 == 0) ^ (axis == 2);
-                if dir { 1 } else { 2 }
+                if from.count_ones().is_multiple_of(2) ^ (axis == 2) {
+                    1
+                } else {
+                    2
+                }
             } else {
                 0
             };
@@ -251,8 +254,9 @@ impl State {
             let pos = self.cp(i);
             let ori = self.co(i) as u64;
             corners |= (i as u64) << (5 * pos + 2);
-            corners |= ((3 - ori) % 3) << (5 * pos);
+            corners |= ori << (5 * pos);
         }
+        bits::bitwise_inv_mod_3(&mut corners);
 
         let mut edges = 0;
         for i in 0..12 {
@@ -271,6 +275,28 @@ impl std::ops::Mul for State {
 
     fn mul(self, rhs: Self) -> Self::Output {
         rhs.then(&self)
+    }
+}
+
+impl std::ops::Mul<Move> for State {
+    type Output = State;
+
+    fn mul(self, rhs: Move) -> Self::Output {
+        State::ID.mv(rhs).then(&self)
+    }
+}
+
+impl std::ops::Mul<State> for Move {
+    type Output = State;
+
+    fn mul(self, rhs: State) -> Self::Output {
+        rhs.mv(self)
+    }
+}
+
+impl From<Move> for State {
+    fn from(mv: Move) -> Self {
+        State::ID.mv(mv)
     }
 }
 
