@@ -25,7 +25,7 @@ pub fn bench_composition(c: &mut Criterion) {
     g.throughput(Throughput::Elements(
         (basic_states.len() * basic_states.len()) as u64,
     ));
-    g.bench_function("compose", |b| {
+    g.bench_function("then", |b| {
         b.iter(|| {
             for (a, b) in iproduct!(basic_states, basic_states) {
                 black_box(a.then(&b));

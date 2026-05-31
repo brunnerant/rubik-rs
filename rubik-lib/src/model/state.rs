@@ -157,26 +157,20 @@ impl State {
     pub fn then(&self, other: &State) -> State {
         let mut corners = 0;
         for i in 0..8 {
-            let mut pos = i;
-            let mut ori = bits::get(other.corners, 5 * pos, 2);
-            pos = bits::get(other.corners, 5 * pos + 2, 3) as u8;
-            ori = (ori + bits::get(self.corners, 5 * pos, 2)) % 3;
-            pos = bits::get(self.corners, 5 * pos + 2, 3) as u8;
-            corners |= (pos as u64) << (5 * i + 2);
-            corners |= ori << (5 * i);
+            let pos = bits::get(other.corners, 5 * i + 2, 3) as u8;
+            let perm = bits::get(self.corners, 5 * pos, 5) as u8;
+            corners |= (perm as u64) << (5 * i);
         }
+        bits::bitwise_add_mod_3(&mut corners, other.corners);
 
         let mut edges = 0;
         for i in 0..12 {
-            let mut pos = i;
-            let mut ori = bits::get(other.edges, 5 * pos, 1);
-            pos = bits::get(other.edges, 5 * pos + 1, 4) as u8;
-            ori ^= bits::get(self.edges, 5 * pos, 1);
-            pos = bits::get(self.edges, 5 * pos + 1, 4) as u8;
-            edges |= (pos as u64) << (5 * i + 1);
-            edges |= ori << (5 * i);
+            let pos = bits::get(other.edges, 5 * i + 1, 4) as u8;
+            let perm = bits::get(self.edges, 5 * pos, 5) as u8;
+            edges |= (perm as u64) << (5 * i);
         }
-
+        edges ^= other.edges
+            & 0b_00001_00001_00001_00001_00001_00001_00001_00001_00001_00001_00001_00001;
         State { corners, edges }
     }
 
