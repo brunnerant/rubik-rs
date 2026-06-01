@@ -160,25 +160,26 @@ impl Trie {
 
 #[derive(Clone)]
 pub struct TriePtr {
-    lhs: State, // the left multiplier for the sorted order
+    lhs: State,                 // the left multiplier for the sorted order
     stack: SmallVec<[u64; 13]>, // 13 is chosen so that size_of::<TriePtr>() == 128
 }
 
 impl TriePtr {
-    pub fn first(coset: State) -> TriePtr {
+    /// Returns the pointer to the first state in the trie, when left multiplied by the given state.
+    pub fn first(lhs: State) -> TriePtr {
         // This is similar to state inversion, except that the orientation part
         // is inverted but its position is not swapped.
         let mut corners = 0;
         for i in 0..8 {
-            let pos = bits::get(coset.corners, 5 * i + 2, 3) as u8;
-            let ori = bits::get(coset.corners, 5 * i, 2);
+            let pos = bits::get(lhs.corners, 5 * i + 2, 3) as u8;
+            let ori = bits::get(lhs.corners, 5 * i, 2);
             corners |= (i as u64) << (5 * pos + 2);
             corners |= ((3 - ori) % 3) << (5 * i);
         }
         let mut edges = 0;
         for i in 0..12 {
-            let pos = bits::get(coset.edges, 5 * i + 1, 4) as u8;
-            let ori = bits::get(coset.edges, 5 * i, 1);
+            let pos = bits::get(lhs.edges, 5 * i + 1, 4) as u8;
+            let ori = bits::get(lhs.edges, 5 * i, 1);
             edges |= (i as u64) << (5 * pos + 1);
             edges |= ori << (5 * i);
         }
@@ -190,6 +191,7 @@ impl TriePtr {
         }
     }
 
+    /// Returns the next state in the trie, when left multiplied by the lhs.
     pub fn next(&mut self, trie: &Trie) -> Option<State> {
         while let Some(&top) = self.stack.last() {
             let node = bits::get(top, 0, 60) as usize;
