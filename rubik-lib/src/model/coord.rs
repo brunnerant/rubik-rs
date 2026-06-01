@@ -223,7 +223,7 @@ mod tests {
 
     use num::{Zero, range};
 
-    use crate::model::coord::{CO, Coord, EO, LR};
+    use crate::{model::{coord::{CO, Coord, EO, LR}, moves::Move}, solve::kociemba::phase1::EOLR};
 
     #[test]
     fn test_sample_repr() {
@@ -239,6 +239,12 @@ mod tests {
                 assert!(state.valid(), "{:?} {:?}", coord, state);
                 assert_eq!(coord, C::from_state(&state), "{:?}", state);
                 states.insert(state);
+
+                // Check closure
+                for mv in Move::BASIC_MOVES {
+                    let next_coord = C::from_state(&state.mv(mv));
+                    assert!(next_coord.repr() < C::COUNT)
+                }
             }
             assert_eq!(states.len(), num::cast(C::COUNT).unwrap());
         }
@@ -246,5 +252,6 @@ mod tests {
         test::<CO>();
         test::<EO>();
         test::<LR>();
+        test::<EOLR>();
     }
 }
