@@ -116,9 +116,10 @@ pub struct LR {
 }
 
 impl LR {
-    const BINOM: [u16; 12 * 4] = [
-        1, 0, 0, 0, 1, 1, 0, 0, 1, 2, 1, 0, 1, 3, 3, 1, 1, 4, 6, 4, 1, 5, 10, 10, 1, 6, 15, 20, 1,
-        7, 21, 35, 1, 8, 28, 56, 1, 9, 36, 84, 1, 10, 45, 120, 1, 11, 55, 165,
+    const BINOM: [u16; 12 * 5] = [
+        0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 2, 1, 0, 0, 1, 3, 3, 1, 0, 1, 4, 6, 4, 0, 1, 5, 10, 10,
+        0, 1, 6, 15, 20, 0, 1, 7, 21, 35, 0, 1, 8, 28, 56, 0, 1, 9, 36, 84, 0, 1, 10, 45, 120, 0,
+        1, 11, 55, 165,
     ];
 }
 
@@ -127,20 +128,14 @@ impl Coord for LR {
     const COUNT: Self::Repr = 495; // 12 choose 4
 
     fn from_state(state: &State) -> Self {
-        let mut n = 12;
         let mut k = 4;
         let mut coord = 0;
         for i in 0..12 {
-            let taken = state.ep(i) < 4;
-            if taken {
+            if state.ep(i) < 4 {
                 k -= 1;
-                if k == 0 {
-                    break;
-                }
             } else {
-                coord += Self::BINOM[4 * (n - 1) + (k - 1)];
+                coord += Self::BINOM[5 * (11 - i as usize) + k];
             }
-            n -= 1;
         }
         Self { coord }
     }
@@ -154,26 +149,21 @@ impl Coord for LR {
     }
 
     fn sample_state(&self) -> State {
-        let mut n = 12;
         let mut k = 4;
         let mut coord = self.coord;
         let mut perm = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
         let mut even = true;
         let mut pos = [0; 4];
-        loop {
-            let binom = Self::BINOM[4 * (n - 1) + (k - 1)];
+        for i in 0..12 {
+            let binom = Self::BINOM[5 * (11 - i) + k];
             if coord >= binom {
-                perm.swap(12 - n, 12 - n + k);
-                even = !even;
+                perm.swap(i, i + k);
+                even ^= binom > 0;
                 coord -= binom;
             } else {
-                pos[4 - k] = 12 - n;
+                pos[4 - k] = i;
                 k -= 1;
-                if k == 0 {
-                    break;
-                }
             }
-            n -= 1;
         }
         if !even {
             perm.swap(pos[0], pos[1]);
