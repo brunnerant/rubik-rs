@@ -21,7 +21,7 @@ pub struct State {
     /// The orientation of a corner tells how many times it was rotated clockwise from its neutral position.
     /// The neutral position is defined such that the color of the corner along the X axis (+X or -X depending on
     /// the position) is the same as the color of the adjacent center piece, considering opposite colors as identical.
-    /// 
+    ///
     /// In order to support symmetries, the MSB of the corner field can be set to indicate a mirrored state.
     /// In such a state, corner orientations must be considered opposite to what they usually are,
     /// which alters state composition.
@@ -270,7 +270,9 @@ impl State {
             corners |= (i as u64) << (5 * pos + 2);
             corners |= ori << (5 * pos);
         }
-        bits::bitwise_inv_mod_3(&mut corners);
+        if !self.mirrored() {
+            bits::bitwise_inv_mod_3(&mut corners);
+        }
 
         let mut edges = 0;
         for i in 0..12 {

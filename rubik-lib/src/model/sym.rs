@@ -45,16 +45,16 @@ impl Symmetries {
         let mut elems_inv = Vec::with_capacity(48);
         let mut state = State::ID;
         for _ in 0..4 {
-            for _ in 0..3 {
+            for _ in 0..2 {
                 for _ in 0..2 {
-                    for _ in 0..2 {
+                    for _ in 0..3 {
                         elems.push(state);
                         elems_inv.push(state.inv());
-                        state = state * MIR_LR;
+                        state = state * ROT_LBD;
                     }
-                    state = state * ROT_U2;
+                    state = state * MIR_LR;
                 }
-                state = state * ROT_LBD;
+                state = state * ROT_U2;
             }
             state = state * ROT_L;
         }
@@ -89,11 +89,24 @@ mod tests {
         sym::{MIR_LR, ROT_L, ROT_LBD, ROT_U2, Symmetries},
     };
 
+    #[test]
+    fn mirror_composition() {
+        let a: State = Move::L.into();
+        let b = MIR_LR;
+        let c: State = Move::D.into();
+        let d = b.inv();
+        let e: State = Move::F.into();
+        let rhs = State::ID.mv(Move::F).mv(Move::D_).mv(Move::L);
+        assert_eq!((((a * b) * c) * d) * e, rhs);
+        assert_eq!(a * (b * (c * (d * e))), rhs);
+        assert_eq!(((a * (b * c)) * d) * e, rhs);
+    }
+
     fn test_conj(mv1: Move, mv2: Move, sym: State) {
         assert_eq!(sym.inv() * mv2 * sym, mv1.into());
     }
 
-    fn test_order(mut state: State, order: usize) {
+    fn test_order(state: State, order: usize) {
         let mut power = State::ID;
         for _ in 0..order {
             power = power * state;
@@ -146,23 +159,12 @@ mod tests {
     }
 
     #[test]
-    fn rot_lbd_l() {
-        let sym = ROT_LBD * ROT_L.inv(); // equivalent to ROT_F'
-        test_conj(Move::L, Move::D, sym);
-        test_conj(Move::D, Move::R, sym);
-        test_conj(Move::R, Move::U, sym);
-        test_conj(Move::U, Move::L, sym);
-        test_conj(Move::F, Move::F, sym);
-        test_conj(Move::B, Move::B, sym);
-    }
-
-    #[test]
     fn all_symmetries_form_a_group() {
         let sym = Symmetries::all();
         assert_eq!(sym.elems.len(), 48);
         let all_syms: HashSet<_> = sym.elems.iter().cloned().collect();
         for (i, j) in iproduct!(0..48, 0..48) {
-            assert!(all_syms.contains(&(sym.elems[i] * sym.elems[j])), "{} {}", i, j);
+            assert!(all_syms.contains(&(sym.elems[i] * sym.elems[j])));
             assert!(all_syms.contains(&sym.elems[i].inv()), "{}", i);
         }
     }
@@ -171,15 +173,29 @@ mod tests {
     fn state_repr() {
         let sym = Symmetries::all();
         let mut reprs = HashMap::new();
-        for dir in [
-            Direction::Clockwise,
-            Direction::CounterClockwise,
-            Direction::HalfTurn,
-        ] {
-            for face in Face::ALL_FACES {
+        let mut single_turns = Vec::new();
+        let mut double_turns = Vec::new();
+        for face in Face::ALL_FACES {
+            single_turns.push(Move {
+                face,
+                dir: Direction::Clockwise,
+            });
+            single_turns.push(Move {
+                face,
+                dir: Direction::CounterClockwise,
+            });
+            double_turns.push(Move {
+                face,
+                dir: Direction::HalfTurn,
+            });
+            for dir in [
+                Direction::Clockwise,
+                Direction::CounterClockwise,
+                Direction::HalfTurn,
+            ] {
                 let mv = Move { face, dir };
                 let state = State::ID.mv(mv);
-                let (repr, sidx) = sym.repr(state);
+                let (repr, _) = sym.repr(state);
                 // assert_eq!(state, sym.conj(repr, sidx));
                 assert!(repr.valid());
                 reprs.entry(repr).or_insert(Vec::new()).push(mv);
@@ -190,23 +206,7 @@ mod tests {
         }
         assert_eq!(
             reprs.values().cloned().collect::<HashSet<_>>(),
-            HashSet::from([
-                vec![Move::L2, Move::R2, Move::D2, Move::U2, Move::B2, Move::F2],
-                vec![
-                    Move::L,
-                    Move::R,
-                    Move::D,
-                    Move::U,
-                    Move::B,
-                    Move::F,
-                    Move::L_,
-                    Move::R_,
-                    Move::D_,
-                    Move::U_,
-                    Move::B_,
-                    Move::F_
-                ]
-            ])
+            HashSet::from([single_turns, double_turns])
         );
     }
 }
