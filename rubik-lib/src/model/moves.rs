@@ -5,7 +5,7 @@ use smallvec::{SmallVec, smallvec};
 
 use crate::model::state::State;
 
-#[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Face {
     #[display("L")]
     Left,
@@ -73,7 +73,7 @@ impl Face {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     Clockwise,
     CounterClockwise,
@@ -106,7 +106,7 @@ impl Direction {
     }
 }
 
-#[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
 #[display("{face}{}", dir.suffix())]
 pub struct Move {
     pub face: Face,

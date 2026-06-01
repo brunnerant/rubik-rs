@@ -21,6 +21,10 @@ pub struct State {
     /// The orientation of a corner tells how many times it was rotated clockwise from its neutral position.
     /// The neutral position is defined such that the color of the corner along the X axis (+X or -X depending on
     /// the position) is the same as the color of the adjacent center piece, considering opposite colors as identical.
+    /// 
+    /// In order to support symmetries, the MSB of the corner field can be set to indicate a mirrored state.
+    /// In such a state, corner orientations must be considered opposite to what they usually are,
+    /// which alters state composition.
     pub corners: u64,
     /// Each edge contains its position (4 bits) and orientation (1 bit), compared to the solved cube.
     ///
@@ -70,6 +74,11 @@ impl State {
     /// The edge orientation for edge i.
     pub fn eo(&self, i: u8) -> u8 {
         bits::get(self.edges, 5 * i, 1) as u8
+    }
+
+    /// Whether the state is mirrored, which means that orientations must be reversed.
+    pub fn mirrored(&self) -> bool {
+        (self.corners >> 63) != 0
     }
 
     /// Whether this state is valid. A state is valid if:
@@ -228,13 +237,18 @@ impl State {
 
     /// Performs the given permutation after this permutation.
     pub fn then(&self, other: &State) -> State {
-        let mut corners = 0;
+        let mut corners = self.corners & (1 << 63);
+        corners ^= other.corners & (1 << 63);
         for i in 0..8 {
             let pos = other.cp(i);
             let perm = bits::get(self.corners, 5 * pos, 5) as u8;
             corners |= (perm as u64) << (5 * i);
         }
-        bits::bitwise_add_mod_3(&mut corners, other.corners);
+        let mut other_corners = other.corners;
+        if self.mirrored() {
+            bits::bitwise_inv_mod_3(&mut other_corners);
+        }
+        bits::bitwise_add_mod_3(&mut corners, other_corners);
 
         let mut edges = 0;
         for i in 0..12 {
@@ -249,7 +263,7 @@ impl State {
 
     /// Returns the inverse state.
     pub fn inv(&self) -> State {
-        let mut corners = 0;
+        let mut corners = self.corners & (1 << 63);
         for i in 0..8 {
             let pos = self.cp(i);
             let ori = self.co(i) as u64;
@@ -303,7 +317,11 @@ impl From<Move> for State {
 impl std::fmt::Debug for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f)?;
-        writeln!(f, "corners:")?;
+        write!(f, "corners")?;
+        if self.mirrored() {
+            write!(f, " (mirrored)")?;
+        }
+        writeln!(f, ":")?;
         write!(f, "- permutation:")?;
         for i in 0..8 {
             write!(f, " {}", self.cp(i))?;
