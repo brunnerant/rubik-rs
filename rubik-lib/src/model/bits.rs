@@ -10,6 +10,11 @@ pub fn get<T: BitField>(bitfield: T, pos: u8, count: u8) -> T {
     (bitfield >> (pos as usize)) & mask
 }
 
+pub fn bitwise_add_mod_2(a: &mut u64, b: u64) {
+    let one = 0b_00001_00001_00001_00001_00001_00001_00001_00001_00001_00001_00001_00001;
+    *a ^= b & one;
+}
+
 pub fn bitwise_add_mod_3(a: &mut u64, b: u64) {
     let one = 0b_00001_00001_00001_00001_00001_00001_00001_00001;
     let input_mask = one | (one << 1);

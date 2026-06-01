@@ -1,13 +1,10 @@
-use crate::model::{
-    bits,
-    moves::{Axis, Direction, Face, Move},
-};
+use crate::model::{bits, moves::Move};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct State {
     /// Each corner contains its position (3 bits) and orientation (2 bits), compared to the solved cube.
     ///
-    /// The positions tell where each corner comes from in the solved cube.
+    /// The positions tell where each corner moves when applying the state.
     /// Given cartesian (X, Y, Z) coordinates, they are defined as follows:
     /// - 0: (-1, -1, -1)
     /// - 1: (+1, -1, -1)
@@ -28,7 +25,7 @@ pub struct State {
     pub corners: u64,
     /// Each edge contains its position (4 bits) and orientation (1 bit), compared to the solved cube.
     ///
-    /// The positions tell where each edge comes from in the solved cube.
+    /// The positions tell where each edge moves when applying the state.
     /// Given cartesian (X, Y, Z) coordinates, they are defined as follows:
     /// - 0: (0, -1, -1)
     /// - 1: (0, +1, -1)
@@ -45,7 +42,7 @@ pub struct State {
     ///
     /// The orientation of a corner tells whether it is in its neutral position or flipped.
     /// An edge is in neutral position if its dominant color is aligned with the adjacent dominant face.
-    /// Dominance is induced by a simple X < Y < Z relation for ordering faces and corresponding colors.
+    /// Dominance is induced by a simple X > Y > Z relation for ordering faces and corresponding colors.
     pub edges: u64,
 }
 
@@ -54,6 +51,100 @@ impl State {
     pub const ID: Self = Self {
         corners: 0b_11100_11000_10100_10000_01100_01000_00100_00000,
         edges: 0b_10110_10100_10010_10000_01110_01100_01010_01000_00110_00100_00010_00000,
+    };
+
+    /// The basic states resulting from the primary moves
+    pub const BASIC_MOVES: [Self; 18] = [
+        Self::L,
+        Self::L_,
+        Self::L2,
+        Self::R,
+        Self::R_,
+        Self::R2,
+        Self::D,
+        Self::D_,
+        Self::D2,
+        Self::U,
+        Self::U_,
+        Self::U2,
+        Self::B,
+        Self::B_,
+        Self::B2,
+        Self::F,
+        Self::F_,
+        Self::F2,
+    ];
+    pub const L: Self = Self {
+        corners: 0b_11100_10000_10100_00000_01100_11000_00100_01000,
+        edges: 0b_10110_01100_10010_01000_01110_10000_01010_10100_00110_00100_00010_00000,
+    };
+    pub const L_: Self = Self {
+        corners: 0b_11100_01000_10100_11000_01100_00000_00100_10000,
+        edges: 0b_10110_01000_10010_01100_01110_10100_01010_10000_00110_00100_00010_00000,
+    };
+    pub const L2: Self = Self {
+        corners: 0b_11100_00000_10100_01000_01100_10000_00100_11000,
+        edges: 0b_10110_10000_10010_10100_01110_01000_01010_01100_00110_00100_00010_00000,
+    };
+    pub const R: Self = Self {
+        corners: 0b_01100_11000_11100_10000_00100_01000_10100_00000,
+        edges: 0b_01010_10100_01110_10000_10110_01100_10010_01000_00110_00100_00010_00000,
+    };
+    pub const R_: Self = Self {
+        corners: 0b_10100_11000_00100_10000_11100_01000_01100_00000,
+        edges: 0b_01110_10100_01010_10000_10010_01100_10110_01000_00110_00100_00010_00000,
+    };
+    pub const R2: Self = Self {
+        corners: 0b_00100_11000_01100_10000_10100_01000_11100_00000,
+        edges: 0b_10010_10100_10110_10000_01010_01100_01110_01000_00110_00100_00010_00000,
+    };
+    pub const D: Self = Self {
+        corners: 0b_11100_11000_00101_10110_01100_01000_00010_10001,
+        edges: 0b_10110_10100_00001_00101_01110_01100_01010_01000_00110_10011_00010_10001,
+    };
+    pub const D_: Self = Self {
+        corners: 0b_11100_11000_10001_00010_01100_01000_10110_00101,
+        edges: 0b_10110_10100_00101_00001_01110_01100_01010_01000_00110_10001_00010_10011,
+    };
+    pub const D2: Self = Self {
+        corners: 0b_11100_11000_00000_00100_01100_01000_10000_10100,
+        edges: 0b_10110_10100_10000_10010_01110_01100_01010_01000_00110_00000_00010_00100,
+    };
+    pub const U: Self = Self {
+        corners: 0b_11010_01001_10100_10000_11101_01110_00100_00000,
+        edges: 0b_00111_00011_10010_10000_01110_01100_01010_01000_10101_00100_10111_00000,
+    };
+    pub const U_: Self = Self {
+        corners: 0b_01110_11101_10100_10000_01001_11010_00100_00000,
+        edges: 0b_00011_00111_10010_10000_01110_01100_01010_01000_10111_00100_10101_00000,
+    };
+    pub const U2: Self = Self {
+        corners: 0b_01000_01100_10100_10000_11000_11100_00100_00000,
+        edges: 0b_10100_10110_10010_10000_01110_01100_01010_01000_00010_00100_00110_00000,
+    };
+    pub const B: Self = Self {
+        corners: 0b_11100_11000_10100_10000_01010_00001_01101_00110,
+        edges: 0b_10110_10100_10010_10000_01110_01100_00010_00000_00110_00100_01000_01010,
+    };
+    pub const B_: Self = Self {
+        corners: 0b_11100_11000_10100_10000_00110_01101_00001_01010,
+        edges: 0b_10110_10100_10010_10000_01110_01100_00000_00010_00110_00100_01010_01000,
+    };
+    pub const B2: Self = Self {
+        corners: 0b_11100_11000_10100_10000_00000_00100_01000_01100,
+        edges: 0b_10110_10100_10010_10000_01110_01100_01000_01010_00110_00100_00000_00010,
+    };
+    pub const F: Self = Self {
+        corners: 0b_10101_11110_10010_11001_01100_01000_00100_00000,
+        edges: 0b_10110_10100_10010_10000_00100_00110_01010_01000_01110_01100_00010_00000,
+    };
+    pub const F_: Self = Self {
+        corners: 0b_11001_10010_11110_10101_01100_01000_00100_00000,
+        edges: 0b_10110_10100_10010_10000_00110_00100_01010_01000_01100_01110_00010_00000,
+    };
+    pub const F2: Self = Self {
+        corners: 0b_10000_10100_11000_11100_01100_01000_00100_00000,
+        edges: 0b_10110_10100_10010_10000_01100_01110_01010_01000_00100_00110_00010_00000,
     };
 
     /// The corner permutation for corner i.
@@ -131,136 +222,6 @@ impl State {
         true
     }
 
-    fn permute<const N: usize>(array: u64, perm: [u8; N], inv: bool) -> u64 {
-        let mut result = 0;
-        for (from, to) in perm.into_iter().enumerate() {
-            let from = from as u8;
-            let (from, to) = if inv { (to, from) } else { (from, to) };
-            result |= bits::get(array, 5 * from, 5) << (5 * to);
-        }
-        result
-    }
-
-    fn orient_corners(array: u64, perm: [u8; 8], axis: u8, inv: bool) -> u64 {
-        let mut result = 0;
-        for (from, to) in perm.into_iter().enumerate() {
-            // position
-            let from = from as u8;
-            let (from, to) = if inv { (to, from) } else { (from, to) };
-            result |= bits::get(array, 5 * from + 2, 3) << (5 * to + 2);
-            // orientation
-            let offset = if axis != 0 && from != to {
-                if from.count_ones().is_multiple_of(2) ^ (axis == 2) {
-                    1
-                } else {
-                    2
-                }
-            } else {
-                0
-            };
-            let old_or = bits::get(array, 5 * from, 2);
-            let new_or = (old_or + offset) % 3;
-            result |= new_or << (5 * to);
-        }
-        result
-    }
-
-    fn orient_edges(array: u64, perm: [u8; 12], axis: u8, inv: bool) -> u64 {
-        let mut result = 0;
-        for (from, to) in perm.into_iter().enumerate() {
-            // position
-            let from = from as u8;
-            let (from, to) = if inv { (to, from) } else { (from, to) };
-            result |= bits::get(array, 5 * from + 1, 4) << (5 * to + 1);
-            // orientation
-            let flip = axis == 1 && from != to;
-            result |= (flip as u64 ^ bits::get(array, 5 * from, 1)) << (5 * to)
-        }
-        result
-    }
-
-    /// Returns the state resulting from the given move.
-    pub fn mv(&self, mv: Move) -> Self {
-        match mv.dir {
-            Direction::HalfTurn => {
-                let corner_perm = match mv.face {
-                    Face::Left => [6, 1, 4, 3, 2, 5, 0, 7],
-                    Face::Right => [0, 7, 2, 5, 4, 3, 6, 1],
-                    Face::Down => [5, 4, 2, 3, 1, 0, 6, 7],
-                    Face::Up => [0, 1, 7, 6, 4, 5, 3, 2],
-                    Face::Back => [3, 2, 1, 0, 4, 5, 6, 7],
-                    Face::Front => [0, 1, 2, 3, 7, 6, 5, 4],
-                };
-                let edge_perm = match mv.face {
-                    Face::Left => [0, 1, 2, 3, 6, 5, 4, 7, 10, 9, 8, 11],
-                    Face::Right => [0, 1, 2, 3, 4, 7, 6, 5, 8, 11, 10, 9],
-                    Face::Down => [2, 1, 0, 3, 4, 5, 6, 7, 9, 8, 10, 11],
-                    Face::Up => [0, 3, 2, 1, 4, 5, 6, 7, 8, 9, 11, 10],
-                    Face::Back => [1, 0, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11],
-                    Face::Front => [0, 1, 3, 2, 4, 5, 7, 6, 8, 9, 10, 11],
-                };
-                Self {
-                    corners: Self::permute(self.corners, corner_perm, false),
-                    edges: Self::permute(self.edges, edge_perm, false),
-                }
-            }
-            _ => {
-                let corner_perm = match mv.face {
-                    Face::Left => [2, 1, 6, 3, 0, 5, 4, 7],
-                    Face::Right => [0, 5, 2, 1, 4, 7, 6, 3],
-                    Face::Down => [4, 0, 2, 3, 5, 1, 6, 7],
-                    Face::Up => [0, 1, 3, 7, 4, 5, 2, 6],
-                    Face::Back => [1, 3, 0, 2, 4, 5, 6, 7],
-                    Face::Front => [0, 1, 2, 3, 6, 4, 7, 5],
-                };
-                let edge_perm = match mv.face {
-                    Face::Left => [0, 1, 2, 3, 10, 5, 8, 7, 4, 9, 6, 11],
-                    Face::Right => [0, 1, 2, 3, 4, 9, 6, 11, 8, 7, 10, 5],
-                    Face::Down => [8, 1, 9, 3, 4, 5, 6, 7, 2, 0, 10, 11],
-                    Face::Up => [0, 11, 2, 10, 4, 5, 6, 7, 8, 9, 1, 3],
-                    Face::Back => [5, 4, 2, 3, 0, 1, 6, 7, 8, 9, 10, 11],
-                    Face::Front => [0, 1, 6, 7, 4, 5, 3, 2, 8, 9, 10, 11],
-                };
-                let axis = match mv.face.axis() {
-                    Axis::X => 0,
-                    Axis::Y => 1,
-                    Axis::Z => 2,
-                };
-                let inv = mv.dir == Direction::CounterClockwise;
-                Self {
-                    corners: Self::orient_corners(self.corners, corner_perm, axis, inv),
-                    edges: Self::orient_edges(self.edges, edge_perm, axis, inv),
-                }
-            }
-        }
-    }
-
-    /// Performs the given permutation after this permutation.
-    pub fn then(&self, other: &State) -> State {
-        let mut corners = self.corners & (1 << 63);
-        corners ^= other.corners & (1 << 63);
-        for i in 0..8 {
-            let pos = other.cp(i);
-            let perm = bits::get(self.corners, 5 * pos, 5) as u8;
-            corners |= (perm as u64) << (5 * i);
-        }
-        let mut other_corners = other.corners;
-        if self.mirrored() {
-            bits::bitwise_inv_mod_3(&mut other_corners);
-        }
-        bits::bitwise_add_mod_3(&mut corners, other_corners);
-
-        let mut edges = 0;
-        for i in 0..12 {
-            let pos = other.ep(i);
-            let perm = bits::get(self.edges, 5 * pos, 5) as u8;
-            edges |= (perm as u64) << (5 * i);
-        }
-        edges ^= other.edges
-            & 0b_00001_00001_00001_00001_00001_00001_00001_00001_00001_00001_00001_00001;
-        State { corners, edges }
-    }
-
     /// Returns the inverse state.
     pub fn inv(&self) -> State {
         let mut corners = self.corners & (1 << 63);
@@ -290,7 +251,27 @@ impl std::ops::Mul for State {
     type Output = State;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        rhs.then(&self)
+        let mut corners = rhs.corners & (1 << 63);
+        corners ^= self.corners & (1 << 63);
+        for i in 0..8 {
+            let pos = rhs.cp(i);
+            let perm = bits::get(self.corners, 5 * pos, 5) as u8;
+            corners |= (perm as u64) << (5 * i);
+        }
+        let mut rhs_corners = rhs.corners;
+        if rhs.mirrored() {
+            bits::bitwise_inv_mod_3(&mut rhs_corners);
+        }
+        bits::bitwise_add_mod_3(&mut corners, rhs_corners);
+
+        let mut edges = 0;
+        for i in 0..12 {
+            let pos = rhs.ep(i);
+            let perm = bits::get(self.edges, 5 * pos, 5) as u8;
+            edges |= (perm as u64) << (5 * i);
+        }
+        bits::bitwise_add_mod_2(&mut edges, rhs.edges);
+        State { corners, edges }
     }
 }
 
@@ -298,7 +279,8 @@ impl std::ops::Mul<Move> for State {
     type Output = State;
 
     fn mul(self, rhs: Move) -> Self::Output {
-        State::ID.mv(rhs).then(&self)
+        let rhs: State = rhs.into();
+        self * rhs
     }
 }
 
@@ -306,17 +288,28 @@ impl std::ops::Mul<State> for Move {
     type Output = State;
 
     fn mul(self, rhs: State) -> Self::Output {
-        rhs.mv(self)
+        let lhs: State = self.into();
+        lhs * rhs
+    }
+}
+
+impl std::ops::Mul<Move> for Move {
+    type Output = State;
+
+    fn mul(self, rhs: Move) -> Self::Output {
+        let lhs: State = self.into();
+        let rhs: State = rhs.into();
+        lhs * rhs
     }
 }
 
 impl From<Move> for State {
     fn from(mv: Move) -> Self {
-        State::ID.mv(mv)
+        State::BASIC_MOVES[mv.index() as usize]
     }
 }
 
-impl std::fmt::Debug for State {
+impl std::fmt::Display for State {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f)?;
         write!(f, "corners")?;
@@ -349,6 +342,12 @@ impl std::fmt::Debug for State {
     }
 }
 
+impl std::fmt::Debug for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(self, f)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{collections::HashSet, hash::Hash};
@@ -372,21 +371,14 @@ mod tests {
     #[test]
     fn double_double_rotation_cancel() {
         for mv in [Move::L2, Move::R2, Move::D2, Move::U2, Move::B2, Move::F2] {
-            assert_eq!(State::ID.mv(mv).mv(mv), State::ID);
+            assert_eq!(mv * mv, State::ID);
         }
     }
 
     #[test]
     fn all_moves_are_distinct() {
-        assert_distinct(Move::BASIC_MOVES.iter().map(|&mv| State::ID.mv(mv).corners));
-        assert_distinct(Move::BASIC_MOVES.iter().map(|&mv| State::ID.mv(mv).edges));
-    }
-
-    #[test]
-    fn inverse_move_cancels() {
-        for mv in Move::BASIC_MOVES {
-            assert_eq!(State::ID.mv(mv).mv(mv.inv()), State::ID);
-        }
+        assert_distinct(Move::BASIC_MOVES.iter().map(|&mv| (mv * State::ID).corners));
+        assert_distinct(Move::BASIC_MOVES.iter().map(|&mv| (mv * State::ID).edges));
     }
 
     #[test]
@@ -401,8 +393,8 @@ mod tests {
                 face,
                 dir: Direction::HalfTurn,
             };
-            assert_eq!(State::ID.mv(q).mv(q), State::ID.mv(h));
-            assert_eq!(State::ID.mv(qi).mv(qi), State::ID.mv(h));
+            assert_eq!(q * q, h.into());
+            assert_eq!(qi * qi, h.into());
         }
     }
 
@@ -414,30 +406,15 @@ mod tests {
                 dir: Direction::Clockwise,
             };
             let qi = q.inv();
-            assert_eq!(State::ID.mv(q).mv(q).mv(q).mv(q), State::ID);
-            assert_eq!(State::ID.mv(qi).mv(qi).mv(qi).mv(qi), State::ID);
-        }
-    }
-
-    #[test]
-    fn state_composition() {
-        let basic_moves = Move::BASIC_MOVES;
-        let basic_states = basic_moves.map(|m| State::ID.mv(m));
-
-        for (i, j) in iproduct!(0..18, 0..18) {
-            let state1 = State::ID.mv(basic_moves[i]).mv(basic_moves[j]);
-            let state2 = basic_states[i].then(&basic_states[j]);
-            let state3 = basic_states[j] * basic_states[i];
-            assert!(state1.valid());
-            assert_eq!(state1, state2, "{:?} != {:?}", state1, state2);
-            assert_eq!(state1, state2, "{:?} != {:?}", state1, state3);
+            assert_eq!(q * q * q * q, State::ID);
+            assert_eq!(qi * qi * qi * qi, State::ID);
         }
     }
 
     #[test]
     fn state_inversion() {
         for (i, j) in iproduct!(0..18, 0..18) {
-            let state = State::ID.mv(Move::BASIC_MOVES[i]).mv(Move::BASIC_MOVES[j]);
+            let state = State::BASIC_MOVES[i] * State::BASIC_MOVES[j];
             let inv = state.inv();
             assert!(state.valid());
             assert!(inv.valid());
@@ -449,10 +426,9 @@ mod tests {
     #[test]
     fn state_idempotence() {
         assert!(State::ID.valid());
-        for mv in Move::BASIC_MOVES {
-            let state = State::ID.mv(mv);
-            assert_eq!(state, state * State::ID);
-            assert_eq!(state, State::ID * state);
+        for s in State::BASIC_MOVES {
+            assert_eq!(s, s * State::ID);
+            assert_eq!(s, State::ID * s);
         }
     }
 }

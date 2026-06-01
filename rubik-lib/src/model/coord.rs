@@ -242,7 +242,7 @@ mod tests {
 
                 // Check closure
                 for mv in Move::BASIC_MOVES {
-                    let next_coord = C::from_state(&state.mv(mv));
+                    let next_coord = C::from_state(&(mv * state));
                     assert!(next_coord.repr() < C::COUNT)
                 }
             }

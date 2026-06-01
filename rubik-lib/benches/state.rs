@@ -2,45 +2,28 @@ use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group};
 use itertools::iproduct;
-use rubik_lib::model::{moves::Move, state::State};
+use rubik_lib::model::state::State;
 
-criterion_group!(state, bench_mv, bench_then, bench_inv);
+criterion_group!(state, bench_mul, bench_inv);
 
-pub fn bench_mv(c: &mut Criterion) {
-    let basic_moves = Move::BASIC_MOVES;
+pub fn bench_mul(c: &mut Criterion) {
     let mut g = c.benchmark_group("state");
-    g.throughput(Throughput::Elements(basic_moves.len() as u64));
-    g.bench_function("mv", |b| {
+    g.throughput(Throughput::Elements(18 * 18));
+    g.bench_function("mul", |b| {
         b.iter(|| {
-            for m in basic_moves {
-                black_box(State::ID.mv(m));
-            }
-        })
-    });
-}
-
-pub fn bench_then(c: &mut Criterion) {
-    let basic_states = Move::BASIC_MOVES.map(|m| State::ID.mv(m));
-    let mut g = c.benchmark_group("state");
-    g.throughput(Throughput::Elements(
-        (basic_states.len() * basic_states.len()) as u64,
-    ));
-    g.bench_function("then", |b| {
-        b.iter(|| {
-            for (a, b) in iproduct!(basic_states, basic_states) {
-                black_box(a.then(&b));
+            for (a, b) in iproduct!(0..18, 0..18) {
+                black_box(State::BASIC_MOVES[a] * State::BASIC_MOVES[b]);
             }
         })
     });
 }
 
 pub fn bench_inv(c: &mut Criterion) {
-    let basic_states = Move::BASIC_MOVES.map(|m| State::ID.mv(m));
     let mut g = c.benchmark_group("state");
-    g.throughput(Throughput::Elements(basic_states.len() as u64));
+    g.throughput(Throughput::Elements(18));
     g.bench_function("inv", |b| {
         b.iter(|| {
-            for s in basic_states {
+            for s in State::BASIC_MOVES {
                 black_box(s.inv());
             }
         })

@@ -96,7 +96,7 @@ mod tests {
         let c: State = Move::D.into();
         let d = b.inv();
         let e: State = Move::F.into();
-        let rhs = State::ID.mv(Move::F).mv(Move::D_).mv(Move::L);
+        let rhs = Move::L * Move::D * Move::F;
         assert_eq!((((a * b) * c) * d) * e, rhs);
         assert_eq!(a * (b * (c * (d * e))), rhs);
         assert_eq!(((a * (b * c)) * d) * e, rhs);
@@ -194,7 +194,7 @@ mod tests {
                 Direction::HalfTurn,
             ] {
                 let mv = Move { face, dir };
-                let state = State::ID.mv(mv);
+                let state: State = mv.into();
                 let (repr, _) = sym.repr(state);
                 // assert_eq!(state, sym.conj(repr, sidx));
                 assert!(repr.valid());

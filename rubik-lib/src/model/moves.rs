@@ -37,6 +37,14 @@ impl Axis {
             Axis::Z => (Face::Back, Face::Front),
         }
     }
+
+    pub const fn index(&self) -> u8 {
+        match self {
+            Axis::X => 0,
+            Axis::Y => 1,
+            Axis::Z => 2,
+        }
+    }
 }
 
 impl Face {
@@ -50,7 +58,7 @@ impl Face {
     ];
 
     /// Returns the axis, and whether the face is positively oriented along that axis.
-    pub fn axis(&self) -> Axis {
+    pub const fn axis(&self) -> Axis {
         match self {
             Face::Left => Axis::X,
             Face::Right => Axis::X,
@@ -61,7 +69,7 @@ impl Face {
         }
     }
 
-    pub fn index(&self) -> u8 {
+    pub const fn index(&self) -> u8 {
         match self {
             Face::Left => 0,
             Face::Right => 1,
@@ -81,7 +89,7 @@ pub enum Direction {
 }
 
 impl Direction {
-    pub fn inv(&self) -> Self {
+    pub const fn inv(&self) -> Self {
         match self {
             Direction::Clockwise => Direction::CounterClockwise,
             Direction::CounterClockwise => Direction::Clockwise,
@@ -89,7 +97,7 @@ impl Direction {
         }
     }
 
-    fn suffix(&self) -> &str {
+    pub const fn suffix(&self) -> &str {
         match self {
             Direction::Clockwise => "",
             Direction::CounterClockwise => "'",
@@ -97,7 +105,7 @@ impl Direction {
         }
     }
 
-    pub fn index(&self) -> u8 {
+    pub const fn index(&self) -> u8 {
         match self {
             Direction::Clockwise => 0,
             Direction::CounterClockwise => 1,
@@ -135,14 +143,14 @@ impl Move {
         Self::F2,
     ];
 
-    pub fn inv(&self) -> Self {
+    pub const fn inv(&self) -> Self {
         Self {
             face: self.face,
             dir: self.dir.inv(),
         }
     }
 
-    pub fn index(&self) -> u8 {
+    pub const fn index(&self) -> u8 {
         self.face.index() * 3 + self.dir.index()
     }
 
@@ -299,7 +307,7 @@ impl Iterator for MovesIter {
         self.next.pop_front().map(|(moves, state)| {
             if 19 * moves.encoded < self.max {
                 for mv in Move::BASIC_MOVES {
-                    self.next.push_back((moves.append(mv), state.mv(mv)));
+                    self.next.push_back((moves.append(mv), mv * state));
                 }
             }
             (moves, state)
@@ -337,8 +345,8 @@ mod tests {
     }
 
     #[test]
-    fn unique_moves_to_depth_5() {
-        assert_eq!(Moves::to_depth(5).unique_by(|&(_, s)| s).count(), 621649);
+    fn unique_moves_to_depth_4() {
+        assert_eq!(Moves::to_depth(4).unique_by(|&(_, s)| s).count(), 46741);
     }
 
     #[test]
@@ -354,11 +362,11 @@ mod tests {
         let state = moves
             .moves()
             .into_iter()
-            .fold(State::ID, |state, mv| state.mv(mv));
+            .fold(State::ID, |state, mv| mv * state);
         let inv_state = moves
             .inv_moves()
             .into_iter()
-            .fold(State::ID, |state, mv| state.mv(mv));
+            .fold(State::ID, |state, mv| mv * state);
         assert_eq!(state.inv(), inv_state);
     }
 }

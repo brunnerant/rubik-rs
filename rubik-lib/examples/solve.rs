@@ -23,7 +23,7 @@ fn scramble(n: usize) -> (Vec<Move>, State) {
         }
         let mv = possible_moves[rng.random_range(0..possible_moves.len())];
         moves.push(mv);
-        state = state.mv(mv);
+        state = mv * state;
     }
     (moves, state)
 }

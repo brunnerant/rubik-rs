@@ -265,10 +265,7 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
-        model::{
-            moves::{Move, Moves},
-            state::State,
-        },
+        model::{moves::Moves, state::State},
         solve::four_list::trie::TrieBuilder,
     };
 
@@ -292,25 +289,25 @@ mod tests {
     fn trie_coset_ordering1() {
         let mut trie = TrieBuilder::new();
         let state1 = State::ID;
-        let state2 = state1.mv(Move::F);
-        let state3 = state1.mv(Move::F_);
+        let state2 = State::F;
+        let state3 = State::F_;
         trie.insert(state1);
         trie.insert(state2);
         trie.insert(state3);
         let trie = trie.build();
-        let states: Vec<State> = trie.ordered_coset(State::ID.mv(Move::F_)).collect();
+        let states: Vec<State> = trie.ordered_coset(State::F_).collect();
         assert_eq!(states, vec![state3, state1, state2]);
     }
 
     #[test]
     fn trie_coset_ordering2() {
         let mut trie = TrieBuilder::new();
-        let state1 = State::ID.mv(Move::D_);
-        let state2 = State::ID.mv(Move::L);
+        let state1 = State::D_;
+        let state2 = State::L;
         trie.insert(state1);
         trie.insert(state2);
         let trie = trie.build();
-        let states: Vec<State> = trie.ordered_coset(State::ID.mv(Move::F)).collect();
+        let states: Vec<State> = trie.ordered_coset(State::F).collect();
         assert_eq!(states, vec![state2, state1]);
     }
 
@@ -321,16 +318,16 @@ mod tests {
         for &state in states.iter() {
             trie.insert(state);
         }
-        let coset = State::ID.mv(Move::F2).mv(Move::U);
+        let coset = State::U * State::F2;
         for state in states.iter_mut() {
-            *state = coset.then(state);
+            *state = *state * coset;
         }
         let trie = trie.build();
         states.sort();
         assert_eq!(
             states,
             trie.ordered_coset(coset)
-                .map(|s| coset.then(&s))
+                .map(|s| s * coset)
                 .collect::<Vec<_>>()
         );
     }

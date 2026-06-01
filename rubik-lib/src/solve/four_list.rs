@@ -120,7 +120,7 @@ mod tests {
         for _ in 0..n {
             let mv = Move::BASIC_MOVES[i];
             moves.push(mv);
-            state = state.mv(mv);
+            state = mv * state;
             i = (i + 7) % 18;
         }
         (moves, state)
@@ -134,9 +134,7 @@ mod tests {
         assert!(solution.is_some());
         let solution = solution.unwrap();
         assert_eq!(solution.iter().copied().collect::<Vec<_>>(), moves);
-        let state = solution
-            .into_iter()
-            .fold(State::ID, |state, mv| state.mv(mv));
+        let state = solution.into_iter().fold(State::ID, |state, mv| mv * state);
         assert_eq!(state, scrambled);
     }
 }
