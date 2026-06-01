@@ -11,14 +11,14 @@ use crate::model::state::State;
 
 /// Rotating the whole cube clockwise around the L axis (same direction as the face turn L).
 pub const ROT_L: State = State {
-    corners: 0b_01100_01000_11100_11000_00100_00000_10100_10000,
-    edges: 0b_01010_01000_01110_01100_10110_10100_10010_10000_00011_00111_00001_00101,
+    corners: 0b_10100_10000_00100_00000_11100_11000_01100_01000,
+    edges: 0b_01110_01100_01010_01000_10010_10000_10110_10100_00101_00001_00111_00011,
 };
 
 /// Rotating the whole cube clockwise around the LBD corner.
 pub const ROT_LBD: State = State {
-    corners: 0b_11110_01101_11001_01010_10101_00110_10010_00001,
-    edges: 0b_01111_01011_01101_01001_00111_00011_00101_00001_10110_10100_10010_10000,
+    corners: 0b_11110_10101_01101_00110_11001_10010_01010_00001,
+    edges: 0b_00110_00100_00010_00000_10111_10011_10101_10001_01111_01011_01101_01001,
 };
 
 /// Mirroring the whole cube across the origin.
@@ -96,7 +96,7 @@ mod tests {
         let c: State = Move::D.into();
         let d = b.inv();
         let e: State = Move::F.into();
-        let rhs = Move::L * Move::D * Move::F;
+        let rhs = Move::L * Move::D_ * Move::F;
         assert_eq!((((a * b) * c) * d) * e, rhs);
         assert_eq!(a * (b * (c * (d * e))), rhs);
         assert_eq!(((a * (b * c)) * d) * e, rhs);

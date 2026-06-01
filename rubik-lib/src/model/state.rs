@@ -259,7 +259,7 @@ impl std::ops::Mul for State {
             corners |= (perm as u64) << (5 * i);
         }
         let mut rhs_corners = rhs.corners;
-        if rhs.mirrored() {
+        if self.mirrored() {
             bits::bitwise_inv_mod_3(&mut rhs_corners);
         }
         bits::bitwise_add_mod_3(&mut corners, rhs_corners);
