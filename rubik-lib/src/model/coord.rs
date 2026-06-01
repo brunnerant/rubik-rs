@@ -68,7 +68,7 @@ impl Coord for CO {
 }
 
 /// Edge orientation coordinate
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct EO {
     coord: u16,
 }
@@ -110,7 +110,7 @@ impl Coord for EO {
 }
 
 // LR slice edges coordinate
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct LR {
     coord: u16,
 }
@@ -120,18 +120,6 @@ impl LR {
         1, 0, 0, 0, 1, 1, 0, 0, 1, 2, 1, 0, 1, 3, 3, 1, 1, 4, 6, 4, 1, 5, 10, 10, 1, 6, 15, 20, 1,
         7, 21, 35, 1, 8, 28, 56, 1, 9, 36, 84, 1, 10, 45, 120, 1, 11, 55, 165,
     ];
-
-    fn is_even(mut perm: [u8; 12]) -> bool {
-        let mut even = true;
-        for i in 0..12 {
-            while perm[i] != i as u8 {
-                let j = perm[i];
-                perm.swap(i, j as usize);
-                even = !even;
-            }
-        }
-        even
-    }
 }
 
 impl Coord for LR {
@@ -139,17 +127,12 @@ impl Coord for LR {
     const COUNT: Self::Repr = 495; // 12 choose 4
 
     fn from_state(state: &State) -> Self {
-        let mut taken = [false; 12];
-        taken[state.ep(0) as usize] = true;
-        taken[state.ep(1) as usize] = true;
-        taken[state.ep(2) as usize] = true;
-        taken[state.ep(3) as usize] = true;
-
         let mut n = 12;
         let mut k = 4;
         let mut coord = 0;
-        for tk in taken.into_iter() {
-            if tk {
+        for i in 0..12 {
+            let taken = state.ep(i) < 4;
+            if taken {
                 k -= 1;
                 if k == 0 {
                     break;
@@ -171,16 +154,20 @@ impl Coord for LR {
     }
 
     fn sample_state(&self) -> State {
-        let mut taken = [false; 12];
         let mut n = 12;
         let mut k = 4;
         let mut coord = self.coord;
+        let mut perm = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        let mut even = true;
+        let mut pos = [0; 4];
         loop {
             let binom = Self::BINOM[4 * (n - 1) + (k - 1)];
             if coord >= binom {
+                perm.swap(12 - n, 12 - n + k);
+                even = !even;
                 coord -= binom;
             } else {
-                taken[12 - n] = true;
+                pos[4 - k] = 12 - n;
                 k -= 1;
                 if k == 0 {
                     break;
@@ -188,21 +175,8 @@ impl Coord for LR {
             }
             n -= 1;
         }
-
-        let mut taken_i = 0;
-        let mut not_taken_i = 4;
-        let mut perm = [0; 12];
-        for (i, tk) in taken.into_iter().enumerate() {
-            if tk {
-                perm[taken_i] = i as u8;
-                taken_i += 1;
-            } else {
-                perm[not_taken_i] = i as u8;
-                not_taken_i += 1;
-            }
-        }
-        if !Self::is_even(perm) {
-            perm.swap(0, 1);
+        if !even {
+            perm.swap(pos[0], pos[1]);
         }
 
         let mut edges = 0;
@@ -223,7 +197,13 @@ mod tests {
 
     use num::{Zero, range};
 
-    use crate::{model::{coord::{CO, Coord, EO, LR}, moves::Move}, solve::kociemba::phase1::EOLR};
+    use crate::{
+        model::{
+            coord::{CO, Coord, EO, LR},
+            moves::Move,
+        },
+        solve::kociemba::phase1::EOLR,
+    };
 
     #[test]
     fn test_sample_repr() {
