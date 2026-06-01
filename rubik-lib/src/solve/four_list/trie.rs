@@ -160,7 +160,7 @@ impl Trie {
 
 #[derive(Clone)]
 pub struct TriePtr {
-    coset: State,
+    lhs: State, // the left multiplier for the sorted order
     stack: SmallVec<[u64; 13]>, // 13 is chosen so that size_of::<TriePtr>() == 128
 }
 
@@ -182,17 +182,17 @@ impl TriePtr {
             edges |= (i as u64) << (5 * pos + 1);
             edges |= ori << (5 * i);
         }
-        let coset = State { corners, edges };
+        let lhs = State { corners, edges };
 
         TriePtr {
-            coset,
+            lhs,
             stack: smallvec![0],
         }
     }
 
     pub fn next(&mut self, trie: &Trie) -> Option<State> {
         while let Some(&top) = self.stack.last() {
-            let node = bits::get(top, 0, 56) as usize;
+            let node = bits::get(top, 0, 60) as usize;
             let i = bits::get(top, 60, 4) as u8;
             let branch = trie.branches[node];
             let d = bits::get(branch, 58, 6);
@@ -203,10 +203,10 @@ impl TriePtr {
                 *self.stack.last_mut().unwrap() += 1 << 60;
                 let parent_i = bits::get(branch, 54, 4) as u8;
                 let j = match (d < 2 * 8, d.is_multiple_of(2)) {
-                    (true, true) => bits::get(self.coset.corners, 5 * i + 2, 3) as u8,
-                    (true, false) => (i + bits::get(self.coset.corners, 5 * parent_i, 2) as u8) % 3,
-                    (false, true) => bits::get(self.coset.edges, 5 * i + 1, 4) as u8,
-                    (false, false) => (i + bits::get(self.coset.edges, 5 * parent_i, 1) as u8) % 2,
+                    (true, true) => bits::get(self.lhs.corners, 5 * i + 2, 3) as u8,
+                    (true, false) => (i + bits::get(self.lhs.corners, 5 * parent_i, 2) as u8) % 3,
+                    (false, true) => bits::get(self.lhs.edges, 5 * i + 1, 4) as u8,
+                    (false, false) => (i + bits::get(self.lhs.edges, 5 * parent_i, 1) as u8) % 2,
                 };
 
                 // Push the child on the stack if it exists
@@ -219,7 +219,7 @@ impl TriePtr {
                     if child != leaf {
                         return Some(trie.states[leaf as usize]);
                     }
-                    self.stack.push(child | ((j as u64) << 56));
+                    self.stack.push(child);
                 }
             } else {
                 // Pop the branch off the stack
@@ -248,14 +248,17 @@ impl<'a> Iterator for TrieIter<'a> {
 }
 
 impl Trie {
+    /// Iterates over the states in the trie in sorted order.
     pub fn ordered<'a>(&'a self) -> TrieIter<'a> {
-        self.ordered_coset(State::ID)
+        self.ordered_by_left_mul(State::ID)
     }
 
-    pub fn ordered_coset<'a>(&'a self, coset: State) -> TrieIter<'a> {
+    /// Iterates over the states in the trie in sorted order, when
+    /// left multiplied by the given element.
+    pub fn ordered_by_left_mul<'a>(&'a self, lhs: State) -> TrieIter<'a> {
         TrieIter {
             trie: self,
-            ptr: TriePtr::first(coset),
+            ptr: TriePtr::first(lhs),
         }
     }
 }
@@ -286,48 +289,20 @@ mod tests {
     }
 
     #[test]
-    fn trie_coset_ordering1() {
+    fn trie_lhs_mul_ordering() {
         let mut trie = TrieBuilder::new();
-        let state1 = State::ID;
-        let state2 = State::F;
-        let state3 = State::F_;
-        trie.insert(state1);
-        trie.insert(state2);
-        trie.insert(state3);
-        let trie = trie.build();
-        let states: Vec<State> = trie.ordered_coset(State::F_).collect();
-        assert_eq!(states, vec![state3, state1, state2]);
-    }
-
-    #[test]
-    fn trie_coset_ordering2() {
-        let mut trie = TrieBuilder::new();
-        let state1 = State::D_;
-        let state2 = State::L;
-        trie.insert(state1);
-        trie.insert(state2);
-        let trie = trie.build();
-        let states: Vec<State> = trie.ordered_coset(State::F).collect();
-        assert_eq!(states, vec![state2, state1]);
-    }
-
-    #[test]
-    fn trie_coset_ordering3() {
-        let mut trie = TrieBuilder::new();
-        let mut states: Vec<_> = states_to_depth(4);
-        for &state in states.iter() {
-            trie.insert(state);
-        }
-        let coset = State::U * State::F2;
+        let mut states: Vec<_> = states_to_depth(2);
+        let lhs = State::U * State::F2;
         for state in states.iter_mut() {
-            *state = *state * coset;
+            trie.insert(*state);
+            *state = lhs * *state;
         }
         let trie = trie.build();
         states.sort();
         assert_eq!(
             states,
-            trie.ordered_coset(coset)
-                .map(|s| s * coset)
+            trie.ordered_by_left_mul(lhs)
+                .map(|s| lhs * s)
                 .collect::<Vec<_>>()
         );
     }

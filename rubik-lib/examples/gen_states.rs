@@ -1,9 +1,4 @@
-use rubik_lib::model::{
-    bits,
-    coord::{CO, Coord},
-    moves::Move,
-    state::State,
-};
+use rubik_lib::model::{bits, state::State};
 
 fn bits_to_string(bits: u64, n: u8) -> String {
     let mut s = String::from("0b");
