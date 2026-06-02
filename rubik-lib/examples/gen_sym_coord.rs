@@ -26,6 +26,7 @@ fn create_table<C: Coord, SymC: BitField>(sym: &Symmetries, output_file: &str) {
 }
 
 fn main() {
+    let _ = std::fs::create_dir_all("data");
     create_table::<CO, u8>(&Symmetries::sub16(), "data/co-sym-coord.bin");
     create_table::<EO, u8>(&Symmetries::sub16(), "data/eo-sym-coord.bin");
     create_table::<EOLR, u16>(&Symmetries::sub16(), "data/eolr-sym-coord.bin");

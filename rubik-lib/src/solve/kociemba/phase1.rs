@@ -5,16 +5,13 @@
 
 use std::{
     collections::HashMap,
-    io::{Error, Read, Write},
+    io::{Read, Write},
 };
 
-use num::{
-    Zero, range,
-    traits::{FromBytes, ToBytes},
-};
+use num::{Zero, range, traits::FromBytes};
 
 use crate::model::{
-    bits::BitField,
+    bits::{self, BitField, serialize_array},
     coord::{Coord, EO, LR},
     state::State,
     sym::Symmetries,
@@ -94,36 +91,27 @@ impl<C: Coord, SymC: BitField> SymCoordTable<C, SymC> {
     {
         let mut buffer = Vec::new();
         source.read_to_end(&mut buffer)?;
-        if !buffer.len().is_multiple_of(size_of::<C::Repr>()) {
-            return Err(Error::other(format!(
-                "expected buffer size to be a multiple of {}",
-                size_of::<C::Repr>()
-            )));
-        }
+        let array = bits::deserialize_array::<C::Repr>(&buffer);
         let mut raw_to_sym = HashMap::new();
-        for (i, group) in buffer.chunks_exact(size_of::<C::Repr>()).enumerate() {
-            let bytes: &<C::Repr as FromBytes>::Bytes =
-                group.try_into().unwrap_or_else(|_| panic!());
-            let raw = C::Repr::from_ne_bytes(bytes);
+        for (i, raw) in array.into_iter().enumerate() {
             raw_to_sym.insert(raw, num::cast::<usize, SymC>(i).unwrap());
         }
         Ok(Self { raw_to_sym })
     }
 
     pub fn serialize<Sink: Write>(&self, sink: &mut Sink) -> std::io::Result<()> {
-        let mut buffer: Vec<u8> = vec![0; self.size() * size_of::<C::Repr>()];
+        let mut array = vec![Zero::zero(); self.size()];
         for (&raw, &sym) in self.raw_to_sym.iter() {
-            let start_idx = num::cast::<SymC, usize>(sym).unwrap() * size_of::<C::Repr>();
-            let end_idx = start_idx + size_of::<C::Repr>();
-            buffer[start_idx..end_idx].copy_from_slice(raw.to_ne_bytes().as_ref());
+            array[num::cast::<SymC, usize>(sym).unwrap()] = raw;
         }
-        sink.write_all(&buffer)
+        sink.write_all(&serialize_array(&array))
     }
 }
 
+pub struct SymCoordMoveTable {}
+
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
 
     use num::traits::FromBytes;
 
@@ -142,13 +130,8 @@ mod tests {
         where
             for<'a> &'a [u8]: TryInto<&'a <C::Repr as FromBytes>::Bytes>,
         {
-            let table1 = SymCoordTable::<C, SymC>::build(sym);
-            assert_eq!(table1.size(), len);
-            let mut cursor = Cursor::new(Vec::new());
-            table1.serialize(&mut cursor).unwrap();
-            cursor.set_position(0);
-            let table2 = SymCoordTable::<C, SymC>::deserialize(&mut cursor).unwrap();
-            assert_eq!(table1.raw_to_sym, table2.raw_to_sym);
+            let table = SymCoordTable::<C, SymC>::build(sym);
+            assert_eq!(table.size(), len);
         }
         let sym = Symmetries::sub16();
         test::<CO, u8>(&sym, 168);

@@ -46,9 +46,32 @@ pub fn bitwise_inv_mod_3(a: &mut u64) {
     *a |= (ai & one) << 1;
 }
 
+pub fn deserialize_array<T: BitField>(buffer: &[u8]) -> Vec<T>
+where
+    for<'a> &'a [u8]: TryInto<&'a <T as FromBytes>::Bytes>,
+{
+    let mut array = Vec::new();
+    for bytes in buffer.chunks_exact(size_of::<T>()) {
+        // Safety: bytes is a slice of the exact same size as the target so it can be converted
+        let bytes: &<T as FromBytes>::Bytes = unsafe { bytes.try_into().unwrap_unchecked() };
+        array.push(T::from_ne_bytes(bytes));
+    }
+    array
+}
+
+pub fn serialize_array<T: BitField>(array: &[T]) -> Vec<u8> {
+    let mut buffer = Vec::new();
+    for elem in array {
+        buffer.extend_from_slice(elem.to_ne_bytes().as_ref());
+    }
+    buffer
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::model::bits::{bitwise_add_mod_3, bitwise_inv_mod_3};
+    use crate::model::bits::{
+        bitwise_add_mod_3, bitwise_inv_mod_3, deserialize_array, serialize_array,
+    };
 
     #[test]
     fn add_mod_3() {
@@ -63,5 +86,11 @@ mod tests {
         let mut a = 0b_00000_00100_01001_01001_01110_10010;
         bitwise_inv_mod_3(&mut a);
         assert_eq!(a, 0b_00000_00100_01010_01010_01101_10001);
+    }
+
+    #[test]
+    fn test_serde_arrays() {
+        let array: [u32; _] = [1, 2, 3, 4, 5, 6, 7, 8];
+        assert_eq!(&deserialize_array::<u32>(&serialize_array(&array)), &array)
     }
 }
