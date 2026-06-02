@@ -12,44 +12,9 @@ use num::{Zero, range, traits::FromBytes};
 
 use crate::model::{
     bits::{self, BitField, serialize_array},
-    coord::{Coord, EO, LR},
-    state::State,
+    coord::Coord,
     sym::Symmetries,
 };
-
-/// Combined EO + LR coordinates
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct EOLR {
-    coord: u32,
-}
-
-impl Coord for EOLR {
-    type Repr = u32;
-
-    const COUNT: Self::Repr = EO::COUNT as u32 * LR::COUNT as u32;
-
-    fn from_state(state: &State) -> Self {
-        let eo = EO::from_state(state);
-        let lr = LR::from_state(state);
-        Self {
-            coord: (eo.repr() as u32) * (LR::COUNT as u32) + lr.repr() as u32,
-        }
-    }
-
-    fn from_repr(repr: Self::Repr) -> Self {
-        Self { coord: repr }
-    }
-
-    fn repr(&self) -> Self::Repr {
-        self.coord
-    }
-
-    fn sample_state(&self) -> State {
-        let eo = EO::from_repr((self.coord / (LR::COUNT as u32)) as u16);
-        let lr = LR::from_repr((self.coord % (LR::COUNT as u32)) as u16);
-        lr.sample_state() * eo.sample_state()
-    }
-}
 
 /// Sym-coords are coordinates that are reduced by symmetries. This allows to have more
 /// compact move tables and pruning tables.
@@ -118,10 +83,10 @@ mod tests {
     use crate::{
         model::{
             bits::BitField,
-            coord::{CO, Coord, EO},
+            coord::{CO, Coord, EO, EOLR},
             sym::Symmetries,
         },
-        solve::kociemba::phase1::{EOLR, SymCoordTable},
+        solve::kociemba::phase1::SymCoordTable,
     };
 
     #[test]

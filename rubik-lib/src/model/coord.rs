@@ -183,6 +183,40 @@ impl Coord for LR {
     }
 }
 
+/// Combined EO + LR coordinates
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct EOLR {
+    coord: u32,
+}
+
+impl Coord for EOLR {
+    type Repr = u32;
+
+    const COUNT: Self::Repr = EO::COUNT as u32 * LR::COUNT as u32;
+
+    fn from_state(state: &State) -> Self {
+        let eo = EO::from_state(state);
+        let lr = LR::from_state(state);
+        Self {
+            coord: (eo.repr() as u32) * (LR::COUNT as u32) + lr.repr() as u32,
+        }
+    }
+
+    fn from_repr(repr: Self::Repr) -> Self {
+        Self { coord: repr }
+    }
+
+    fn repr(&self) -> Self::Repr {
+        self.coord
+    }
+
+    fn sample_state(&self) -> State {
+        let eo = EO::from_repr((self.coord / (LR::COUNT as u32)) as u16);
+        let lr = LR::from_repr((self.coord % (LR::COUNT as u32)) as u16);
+        lr.sample_state() * eo.sample_state()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
@@ -190,14 +224,11 @@ mod tests {
     use itertools::Itertools;
     use num::{Zero, range};
 
-    use crate::{
-        model::{
-            coord::{CO, Coord, EO, LR},
-            moves::Move,
-            state::State,
-            sym::Symmetries,
-        },
-        solve::kociemba::phase1::EOLR,
+    use crate::model::{
+        coord::{CO, Coord, EO, EOLR, LR},
+        moves::Move,
+        state::State,
+        sym::Symmetries,
     };
 
     #[test]
@@ -218,7 +249,7 @@ mod tests {
                     assert!(next_coord.repr() < C::COUNT)
                 }
             }
-            assert_eq!(states.len(), num::cast(C::COUNT).unwrap());
+            assert_eq!(states.len(), num::cast::<C::Repr, usize>(C::COUNT).unwrap());
         }
 
         test::<CO>();

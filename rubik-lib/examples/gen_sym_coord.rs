@@ -7,10 +7,10 @@ use std::{
 use rubik_lib::{
     model::{
         bits::BitField,
-        coord::{CO, Coord, EO},
+        coord::{CO, Coord, EO, EOLR},
         sym::Symmetries,
     },
-    solve::kociemba::phase1::{EOLR, SymCoordTable},
+    solve::kociemba::phase1::SymCoordTable,
 };
 
 fn create_table<C: Coord, SymC: BitField>(sym: &Symmetries, output_file: &str) {
