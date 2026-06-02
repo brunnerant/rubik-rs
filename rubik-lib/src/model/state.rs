@@ -363,7 +363,7 @@ mod tests {
         let mut elems = HashSet::new();
         for elem in iter {
             if !elems.insert(elem) {
-                assert!(false, "elements are not distinct");
+                panic!("elements are not distinct");
             }
         }
     }

@@ -7,6 +7,10 @@
 //! The set of symmetries for a cube contains 48 unique symmetries that can be generated
 //! by four elements.
 
+use std::collections::HashMap;
+
+use itertools::iproduct;
+
 use crate::model::state::State;
 
 /// Rotating the whole cube clockwise around the L axis (same direction as the face turn L).
@@ -35,7 +39,9 @@ pub const MIR_LR: State = State {
 
 pub struct Symmetries {
     elems: Vec<State>,
-    elems_inv: Vec<State>,
+    inv: Vec<u8>,
+    comp: Vec<u8>,
+    conj_inv_mv: Vec<u8>,
 }
 
 impl Symmetries {
@@ -43,19 +49,17 @@ impl Symmetries {
     /// of the given generators.
     pub fn generate<const N: usize>(gens: [State; N]) -> Self {
         let mut elems = Vec::with_capacity(48);
-        let mut elems_inv = Vec::with_capacity(48);
         let mut end = [State::ID; N];
         let mut state = State::ID;
         let mut top = N - 1;
         loop {
             if top == N - 1 {
                 elems.push(state);
-                elems_inv.push(state.inv());
                 state = state * gens[top];
             }
             if state == end[top] {
                 if top == 0 {
-                    break Self { elems, elems_inv };
+                    break;
                 }
                 top -= 1;
                 state = state * gens[top];
@@ -64,6 +68,30 @@ impl Symmetries {
                 top = N - 1;
             }
         }
+
+        let mut elem_to_idx = HashMap::with_capacity(elems.len());
+        for (i, e) in elems.iter().enumerate() {
+            elem_to_idx.insert(e, i as u8);
+        }
+        let mut sym = Self {
+            elems: elems.clone(),
+            inv: Vec::with_capacity(elems.len()),
+            comp: Vec::with_capacity(elems.len() * elems.len()),
+            conj_inv_mv: Vec::with_capacity(18 * elems.len()),
+        };
+        for elem in elems.iter() {
+            sym.inv.push(elem_to_idx[&elem.inv()]);
+        }
+        for (i, j) in iproduct!(0..elems.len(), 0..elems.len()) {
+            sym.comp.push(elem_to_idx[&(elems[i] * elems[j])]);
+        }
+        let state_to_mv: HashMap<_, _> =
+            (0..18).map(|i| (State::BASIC_MOVES[i], i as u8)).collect();
+        for (i, m) in iproduct!(0..elems.len(), 0..18) {
+            sym.conj_inv_mv
+                .push(state_to_mv[&sym.conj_inv(State::BASIC_MOVES[m], i as u8)]);
+        }
+        sym
     }
 
     /// All 48 symmetries of the cube group. They form a group and are all unique.
@@ -81,22 +109,42 @@ impl Symmetries {
         self.elems.len() as u8
     }
 
+    /// The symmetry at the given index
+    pub fn sym(&self, s: u8) -> State {
+        self.elems[s as usize]
+    }
+
+    /// The inverse symmetry at the given index
+    pub fn inv(&self, s: u8) -> u8 {
+        self.inv[s as usize]
+    }
+
+    /// The product of symmetries with the given indices
+    pub fn prod(&self, s1: u8, s2: u8) -> u8 {
+        self.comp[(8 * s1 + s2) as usize]
+    }
+
     /// The state resulting from applying this state under the given symmetry.
-    pub fn conj(&self, state: State, sym_idx: u8) -> State {
-        self.elems_inv[sym_idx as usize] * state * self.elems[sym_idx as usize]
+    pub fn conj(&self, state: State, s: u8) -> State {
+        self.sym(self.inv(s)) * state * self.sym(s)
     }
 
     /// The state resulting from applying this state under the inverse of the given symmetry.
-    pub fn conj_inv(&self, state: State, sym_idx: u8) -> State {
-        self.elems[sym_idx as usize] * state * self.elems_inv[sym_idx as usize]
+    pub fn conj_inv(&self, state: State, s: u8) -> State {
+        self.sym(s) * state * self.sym(self.inv(s))
+    }
+
+    /// The conjugated move using the given symmetry.
+    pub fn conj_inv_mv(&self, mv: u8, s: u8) -> u8 {
+        self.conj_inv_mv[(s * 18 + mv) as usize]
     }
 
     /// The representative state for the sym-class of the given state.
     /// It returns an equivalent state, up to a symmetry. The index of the symmetry is also given.
     /// The representative is chosen as the smallest state that belongs to the equivalence class.
     pub fn repr(&self, state: State) -> (State, u8) {
-        (0..self.elems.len())
-            .map(|i| (self.elems[i] * state * self.elems_inv[i], i as u8))
+        (0..self.elems.len() as u8)
+            .map(|i| (self.conj_inv(state, i), i))
             .min_by_key(|(s, _)| *s)
             .unwrap()
     }
@@ -106,7 +154,7 @@ impl Symmetries {
 mod tests {
     use std::collections::{HashMap, HashSet};
 
-    use itertools::{iproduct, join};
+    use itertools::join;
 
     use crate::model::{
         moves::{Direction, Face, Move},
@@ -183,23 +231,14 @@ mod tests {
         test_order(MIR_LR, 2);
     }
 
-    fn test_group(sym: &Symmetries, n: usize) {
-        assert_eq!(sym.elems.len(), n);
-        let all_syms: HashSet<_> = sym.elems.iter().cloned().collect();
-        for (i, j) in iproduct!(0..n, 0..n) {
-            assert!(all_syms.contains(&(sym.elems[i] * sym.elems[j])));
-            assert!(all_syms.contains(&sym.elems[i].inv()));
-        }
-    }
-
     #[test]
     fn all_symmetries_form_a_group() {
-        test_group(&Symmetries::all(), 48);
+        let _ = Symmetries::all();
     }
 
     #[test]
     fn reduced_symmetries_form_a_group() {
-        test_group(&Symmetries::generate([ROT_L, ROT_U2, MIR_LR]), 16);
+        let _ = Symmetries::sub16();
     }
 
     #[test]

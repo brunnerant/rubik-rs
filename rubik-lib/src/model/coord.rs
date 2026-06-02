@@ -310,7 +310,7 @@ mod tests {
         for i in 0..sym.size() {
             if !elems
                 .iter()
-                .map(|&e| C::from_state(&sym.conj(e, i as u8)))
+                .map(|&e| C::from_state(&sym.conj(e, i)))
                 .all_equal()
             {
                 return false;

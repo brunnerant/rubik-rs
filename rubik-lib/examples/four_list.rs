@@ -12,7 +12,7 @@ fn scramble(n: usize) -> (Vec<Move>, State) {
     let mut moves: Vec<Move> = Vec::with_capacity(n);
     let mut state = State::ID;
     for _ in 0..n {
-        let mut possible_moves: Vec<_> = Move::BASIC_MOVES.iter().cloned().collect();
+        let mut possible_moves: Vec<_> = Move::BASIC_MOVES.to_vec();
         if let Some(l1) = moves.last() {
             possible_moves.retain(|mv| mv.face != l1.face);
         }
