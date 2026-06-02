@@ -10,7 +10,7 @@ use crate::model::{bits::BitField, state::State};
 
 pub trait Coord: Eq + Copy + Debug {
     /// The smallest bitfield that can contain this coordinate.
-    type Repr: BitField + Debug;
+    type Repr: BitField;
     /// The number of different values that this coordinate supports.
     const COUNT: Self::Repr;
 
@@ -188,19 +188,21 @@ mod tests {
     use std::collections::HashSet;
 
     use itertools::Itertools;
-use num::{Zero, range};
+    use num::{Zero, range};
 
     use crate::{
         model::{
-            coord::{CO, Coord, EO, LR}, moves::Move, state::State, sym::{MIR_LR, ROT_L, ROT_U2, Symmetries}
+            coord::{CO, Coord, EO, LR},
+            moves::Move,
+            state::State,
+            sym::Symmetries,
         },
         solve::kociemba::phase1::EOLR,
     };
 
     #[test]
     fn test_sample_repr() {
-        fn test<C: Coord>()
-        {
+        fn test<C: Coord>() {
             let mut states = HashSet::new();
             for repr in range(Zero::zero(), C::COUNT) {
                 let coord = C::from_repr(repr);
@@ -227,8 +229,12 @@ use num::{Zero, range};
 
     fn sym_invariant<C: Coord>(elems: &[State], sym: &Symmetries) -> bool {
         assert!(elems.iter().map(C::from_state).all_equal());
-        for i in 0..sym.len() {
-            if !elems.iter().map(|&e| C::from_state(&sym.conj(e, i as u8))).all_equal() {
+        for i in 0..sym.size() {
+            if !elems
+                .iter()
+                .map(|&e| C::from_state(&sym.conj(e, i as u8)))
+                .all_equal()
+            {
                 return false;
             }
         }
@@ -238,7 +244,7 @@ use num::{Zero, range};
     #[test]
     fn test_sym_invariance() {
         let full_sym = Symmetries::all();
-        let red_sym = Symmetries::generate([ROT_L, ROT_U2, MIR_LR]);
+        let red_sym = Symmetries::sub16();
         let elems = [State::ID, State::L];
         assert!(sym_invariant::<CO>(&elems, &red_sym));
         assert!(!sym_invariant::<CO>(&elems, &full_sym));

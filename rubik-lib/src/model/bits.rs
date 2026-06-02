@@ -1,8 +1,16 @@
-use num::PrimInt;
+use std::{
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
-pub trait BitField: PrimInt {}
+use num::{
+    PrimInt,
+    traits::{FromBytes, ToBytes},
+};
 
-impl<T> BitField for T where T: PrimInt {}
+pub trait BitField: PrimInt + FromBytes + ToBytes + Hash + Debug + Display {}
+
+impl<T> BitField for T where T: PrimInt + FromBytes + ToBytes + Hash + Debug + Display {}
 
 pub fn get<T: BitField>(bitfield: T, pos: u8, count: u8) -> T {
     let one = T::one();

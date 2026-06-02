@@ -3,10 +3,25 @@
 //! states where all corners and edges are correctly oriented, and the LR-slice
 //! edges are in the LR-slice.
 
-use crate::model::{coord::{Coord, EO, LR}, state::State};
+use std::{
+    collections::HashMap,
+    io::{Error, Read, Write},
+};
+
+use num::{
+    Zero, range,
+    traits::{FromBytes, ToBytes},
+};
+
+use crate::model::{
+    bits::BitField,
+    coord::{Coord, EO, LR},
+    state::State,
+    sym::Symmetries,
+};
 
 /// Combined EO + LR coordinates
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct EOLR {
     coord: u32,
 }
@@ -19,7 +34,9 @@ impl Coord for EOLR {
     fn from_state(state: &State) -> Self {
         let eo = EO::from_state(state);
         let lr = LR::from_state(state);
-        Self { coord: (eo.repr() as u32) * (LR::COUNT as u32) + lr.repr() as u32 }
+        Self {
+            coord: (eo.repr() as u32) * (LR::COUNT as u32) + lr.repr() as u32,
+        }
     }
 
     fn from_repr(repr: Self::Repr) -> Self {
@@ -34,5 +51,108 @@ impl Coord for EOLR {
         let eo = EO::from_repr((self.coord / (LR::COUNT as u32)) as u16);
         let lr = LR::from_repr((self.coord % (LR::COUNT as u32)) as u16);
         lr.sample_state() * eo.sample_state()
+    }
+}
+
+/// Sym-coords are coordinates that are reduced by symmetries. This allows to have more
+/// compact move tables and pruning tables.
+/// For a given symmetry equivalence class, a single coordinate is used to represent the whole class.
+/// To do so, element with the smallest coordinate from the equivalence class is taken as the representative
+/// for its class. A mapping is then built from the raw coordinate of the representative to the
+/// index of the equivalence class.
+pub struct SymCoordTable<C: Coord, SymC: BitField> {
+    raw_to_sym: HashMap<C::Repr, SymC>,
+}
+
+impl<C: Coord, SymC: BitField> SymCoordTable<C, SymC> {
+    pub fn build(sym: &Symmetries) -> Self {
+        let mut raw_to_sym = HashMap::new();
+        for c in range(Zero::zero(), C::COUNT) {
+            let s = C::from_repr(c).sample_state();
+            let raw = (0..sym.size())
+                .map(|i| C::from_state(&sym.conj_inv(s, i)).repr())
+                .min()
+                .unwrap();
+            if !raw_to_sym.contains_key(&raw) {
+                raw_to_sym.insert(
+                    raw,
+                    num::cast::<usize, SymC>(raw_to_sym.len())
+                        .expect("sym-coord type too small to hold the coordinates"),
+                );
+            }
+        }
+        Self { raw_to_sym }
+    }
+
+    pub fn size(&self) -> usize {
+        self.raw_to_sym.len()
+    }
+
+    pub fn deserialize<Source: Read>(source: &mut Source) -> std::io::Result<Self>
+    where
+        for<'a> &'a [u8]: TryInto<&'a <C::Repr as FromBytes>::Bytes>,
+    {
+        let mut buffer = Vec::new();
+        source.read_to_end(&mut buffer)?;
+        if !buffer.len().is_multiple_of(size_of::<C::Repr>()) {
+            return Err(Error::other(format!(
+                "expected buffer size to be a multiple of {}",
+                size_of::<C::Repr>()
+            )));
+        }
+        let mut raw_to_sym = HashMap::new();
+        for (i, group) in buffer.chunks_exact(size_of::<C::Repr>()).enumerate() {
+            let bytes: &<C::Repr as FromBytes>::Bytes =
+                group.try_into().unwrap_or_else(|_| panic!());
+            let raw = C::Repr::from_ne_bytes(bytes);
+            raw_to_sym.insert(raw, num::cast::<usize, SymC>(i).unwrap());
+        }
+        Ok(Self { raw_to_sym })
+    }
+
+    pub fn serialize<Sink: Write>(&self, sink: &mut Sink) -> std::io::Result<()> {
+        let mut buffer: Vec<u8> = vec![0; self.size() * size_of::<C::Repr>()];
+        for (&raw, &sym) in self.raw_to_sym.iter() {
+            let start_idx = num::cast::<SymC, usize>(sym).unwrap() * size_of::<C::Repr>();
+            let end_idx = start_idx + size_of::<C::Repr>();
+            buffer[start_idx..end_idx].copy_from_slice(raw.to_ne_bytes().as_ref());
+        }
+        sink.write_all(&buffer)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use num::traits::FromBytes;
+
+    use crate::{
+        model::{
+            bits::BitField,
+            coord::{CO, Coord, EO},
+            sym::Symmetries,
+        },
+        solve::kociemba::phase1::{EOLR, SymCoordTable},
+    };
+
+    #[test]
+    fn test_sym_coords() {
+        fn test<C: Coord, SymC: BitField>(sym: &Symmetries, len: usize)
+        where
+            for<'a> &'a [u8]: TryInto<&'a <C::Repr as FromBytes>::Bytes>,
+        {
+            let table1 = SymCoordTable::<C, SymC>::build(sym);
+            assert_eq!(table1.size(), len);
+            let mut cursor = Cursor::new(Vec::new());
+            table1.serialize(&mut cursor).unwrap();
+            cursor.set_position(0);
+            let table2 = SymCoordTable::<C, SymC>::deserialize(&mut cursor).unwrap();
+            assert_eq!(table1.raw_to_sym, table2.raw_to_sym);
+        }
+        let sym = Symmetries::sub16();
+        test::<CO, u8>(&sym, 168);
+        test::<EO, u8>(&sym, 186);
+        test::<EOLR, u16>(&sym, 64430);
     }
 }

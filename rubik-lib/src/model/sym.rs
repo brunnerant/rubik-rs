@@ -71,14 +71,24 @@ impl Symmetries {
         Self::generate([ROT_L, ROT_U2, MIR_LR, ROT_LBD])
     }
 
-    /// The length of this symmetry group
-    pub fn len(&self) -> usize {
-        self.elems.len()
+    /// A subgroup of symmetries that preserve edge and corner orientations, as well as the LR slice edges
+    pub fn sub16() -> Self {
+        Self::generate([ROT_L, ROT_U2, MIR_LR])
     }
 
-    /// The state resulting from applying this state under the given symmetry index.
+    /// The length of this symmetry group
+    pub fn size(&self) -> u8 {
+        self.elems.len() as u8
+    }
+
+    /// The state resulting from applying this state under the given symmetry.
     pub fn conj(&self, state: State, sym_idx: u8) -> State {
         self.elems_inv[sym_idx as usize] * state * self.elems[sym_idx as usize]
+    }
+
+    /// The state resulting from applying this state under the inverse of the given symmetry.
+    pub fn conj_inv(&self, state: State, sym_idx: u8) -> State {
+        self.elems[sym_idx as usize] * state * self.elems_inv[sym_idx as usize]
     }
 
     /// The representative state for the sym-class of the given state.
@@ -218,8 +228,8 @@ mod tests {
             ] {
                 let mv = Move { face, dir };
                 let state: State = mv.into();
-                let (repr, _) = sym.repr(state);
-                // assert_eq!(state, sym.conj(repr, sidx));
+                let (repr, sidx) = sym.repr(state);
+                assert_eq!(state, sym.conj(repr, sidx));
                 assert!(repr.valid());
                 reprs.entry(repr).or_insert(Vec::new()).push(mv);
             }
