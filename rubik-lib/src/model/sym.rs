@@ -34,8 +34,8 @@ pub const MIR_LR: State = State {
 };
 
 pub struct Symmetries {
-    pub elems: Vec<State>,
-    pub elems_inv: Vec<State>,
+    elems: Vec<State>,
+    elems_inv: Vec<State>,
 }
 
 impl Symmetries {
@@ -69,6 +69,11 @@ impl Symmetries {
     /// All 48 symmetries of the cube group. They form a group and are all unique.
     pub fn all() -> Self {
         Self::generate([ROT_L, ROT_U2, MIR_LR, ROT_LBD])
+    }
+
+    /// The length of this symmetry group
+    pub fn len(&self) -> usize {
+        self.elems.len()
     }
 
     /// The state resulting from applying this state under the given symmetry index.
