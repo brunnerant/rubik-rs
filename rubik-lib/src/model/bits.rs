@@ -8,11 +8,11 @@ use num::{
     traits::{FromBytes, ToBytes},
 };
 
-pub trait BitField: PrimInt + FromBytes + ToBytes + Hash + Debug + Display {}
+pub trait Int: PrimInt + FromBytes + ToBytes + Hash + Debug + Display {}
 
-impl<T> BitField for T where T: PrimInt + FromBytes + ToBytes + Hash + Debug + Display {}
+impl<T> Int for T where T: PrimInt + FromBytes + ToBytes + Hash + Debug + Display {}
 
-pub fn get<T: BitField>(bitfield: T, pos: u8, count: u8) -> T {
+pub fn get<T: Int>(bitfield: T, pos: u8, count: u8) -> T {
     let one = T::one();
     let mask = (one << (count as usize)) - one;
     (bitfield >> (pos as usize)) & mask
@@ -46,7 +46,7 @@ pub fn bitwise_inv_mod_3(a: &mut u64) {
     *a |= (ai & one) << 1;
 }
 
-pub fn deserialize_array<T: BitField>(buffer: &[u8]) -> Vec<T>
+pub fn deserialize_array<T: Int>(buffer: &[u8]) -> Vec<T>
 where
     for<'a> &'a [u8]: TryInto<&'a <T as FromBytes>::Bytes>,
 {
@@ -59,7 +59,7 @@ where
     array
 }
 
-pub fn serialize_array<T: BitField>(array: &[T]) -> Vec<u8> {
+pub fn serialize_array<T: Int>(array: &[T]) -> Vec<u8> {
     let mut buffer = Vec::new();
     for elem in array {
         buffer.extend_from_slice(elem.to_ne_bytes().as_ref());

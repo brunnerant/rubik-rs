@@ -4,20 +4,17 @@ use std::{
     path::Path,
 };
 
-use rubik_lib::{
-    model::{
-        bits::BitField,
-        coord::{CO, Coord, EO, EOLR},
-        sym::Symmetries,
-    },
-    solve::kociemba::phase1::SymCoordTable,
+use rubik_lib::model::{
+    coord::{CO, Coord, EO, EOLR, LR},
+    sym::Symmetries,
+    sym_coord::SymCoordTable,
 };
 
-fn create_table<C: Coord, SymC: BitField>(sym: &Symmetries, output_file: &str) {
+fn create_table<C: Coord>(sym: &Symmetries, output_file: &str) {
     let output_file = Path::new(output_file);
     print!("Creating table '{:?}'.", output_file);
     let _ = std::io::stdout().lock().flush();
-    let sym_table = SymCoordTable::<C, SymC>::build(sym);
+    let sym_table = SymCoordTable::<C>::build(sym);
     println!(" Done. ({} elements)", sym_table.size());
     let mut writer = BufWriter::new(File::create(output_file).expect("couldn't open file"));
     sym_table
@@ -27,7 +24,8 @@ fn create_table<C: Coord, SymC: BitField>(sym: &Symmetries, output_file: &str) {
 
 fn main() {
     let _ = std::fs::create_dir_all("data");
-    create_table::<CO, u8>(&Symmetries::sub16(), "data/co-sym-coord.bin");
-    create_table::<EO, u8>(&Symmetries::sub16(), "data/eo-sym-coord.bin");
-    create_table::<EOLR, u16>(&Symmetries::sub16(), "data/eolr-sym-coord.bin");
+    create_table::<CO>(&Symmetries::sub16(), "data/co-sym-coord.bin");
+    create_table::<EO>(&Symmetries::sub16(), "data/eo-sym-coord.bin");
+    create_table::<LR>(&Symmetries::sub16(), "data/lr-sym-coord.bin");
+    create_table::<EOLR>(&Symmetries::sub16(), "data/eolr-sym-coord.bin");
 }

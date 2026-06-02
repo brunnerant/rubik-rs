@@ -4,25 +4,62 @@
 //! by cosets of a subgroup H. Elements in the same cosets have the same
 //! coordinate.
 
+use num::{Zero, iter::Range, range};
 use std::fmt::Debug;
 
-use crate::model::{bits::BitField, state::State};
+use crate::model::{bits::Int, state::State};
 
 pub trait Coord: Eq + Copy + Debug {
-    /// The smallest bitfield that can contain this coordinate.
-    type Repr: BitField;
+    /// The smallest bitfield that can contain this raw coordinate.
+    type Raw: Int;
+    /// The smallest bitfield that can contains this coordinate reduced by symmetry
+    type Sym: Int;
+
     /// The number of different values that this coordinate supports.
-    const COUNT: Self::Repr;
+    const RAW_SIZE: Self::Raw;
+    const SYM_SIZE: Self::Sym;
 
     /// Builds a coordinate from a state
     fn from_state(state: &State) -> Self;
     /// Builds a coordinate from its raw representation
-    fn from_repr(repr: Self::Repr) -> Self;
+    fn from_repr(repr: Self::Raw) -> Self;
 
     /// Retrieves the representation of the coordinate
-    fn repr(&self) -> Self::Repr;
+    fn repr(&self) -> Self::Raw;
     /// Sample a state that has this coordinate (there might be several such states).
     fn sample_state(&self) -> State;
+
+    // Helper methods to convert between the coordinate types
+    fn usize_to_sym(i: usize) -> Self::Sym {
+        unsafe { num::cast::<usize, Self::Sym>(i).unwrap_unchecked() }
+    }
+    fn sym_to_usize(i: Self::Sym) -> usize {
+        unsafe { num::cast::<Self::Sym, usize>(i).unwrap_unchecked() }
+    }
+    fn sym_to_raw(i: Self::Sym) -> Self::Raw {
+        unsafe { num::cast::<Self::Sym, Self::Raw>(i).unwrap_unchecked() }
+    }
+    fn u8_to_raw(i: u8) -> Self::Raw {
+        unsafe { num::cast::<u8, Self::Raw>(i).unwrap_unchecked() }
+    }
+
+    fn pack_sym_coord(s: Self::Sym, i: u8) -> Self::Raw {
+        Self::sym_to_raw(s) * Self::u8_to_raw(16) + Self::u8_to_raw(i)
+    }
+    fn unpack_sym_coord(c: Self::Raw) -> (Self::Sym, u8) {
+        let _16 = Self::u8_to_raw(16);
+        let s = unsafe { num::cast::<Self::Raw, Self::Sym>(c / _16).unwrap_unchecked() };
+        let i = unsafe { num::cast::<Self::Raw, u8>(c % _16).unwrap_unchecked() };
+        (s, i)
+    }
+
+    // Coordinate iteration helpers
+    fn all_raw() -> Range<Self::Raw> {
+        range(Zero::zero(), Self::RAW_SIZE)
+    }
+    fn all_sym() -> Range<Self::Sym> {
+        range(Zero::zero(), Self::SYM_SIZE)
+    }
 }
 
 /// Corner orientation coordinate
@@ -32,8 +69,10 @@ pub struct CO {
 }
 
 impl Coord for CO {
-    type Repr = u16;
-    const COUNT: Self::Repr = 2187; // 3^7
+    type Raw = u16;
+    type Sym = u8;
+    const RAW_SIZE: Self::Raw = 2187; // 3^7
+    const SYM_SIZE: Self::Sym = 168;
 
     fn from_state(state: &State) -> Self {
         let mut coord = 0;
@@ -43,11 +82,11 @@ impl Coord for CO {
         Self { coord }
     }
 
-    fn from_repr(repr: Self::Repr) -> Self {
+    fn from_repr(repr: Self::Raw) -> Self {
         Self { coord: repr }
     }
 
-    fn repr(&self) -> Self::Repr {
+    fn repr(&self) -> Self::Raw {
         self.coord
     }
 
@@ -76,8 +115,10 @@ pub struct EO {
 }
 
 impl Coord for EO {
-    type Repr = u16;
-    const COUNT: Self::Repr = 2048; // 2^11
+    type Raw = u16;
+    type Sym = u8;
+    const RAW_SIZE: Self::Raw = 2048; // 2^11
+    const SYM_SIZE: Self::Sym = 186;
 
     fn from_state(state: &State) -> Self {
         let mut coord = 0;
@@ -87,11 +128,11 @@ impl Coord for EO {
         Self { coord }
     }
 
-    fn from_repr(repr: Self::Repr) -> Self {
+    fn from_repr(repr: Self::Raw) -> Self {
         Self { coord: repr }
     }
 
-    fn repr(&self) -> Self::Repr {
+    fn repr(&self) -> Self::Raw {
         self.coord
     }
 
@@ -126,8 +167,10 @@ impl LR {
 }
 
 impl Coord for LR {
-    type Repr = u16;
-    const COUNT: Self::Repr = 495; // 12 choose 4
+    type Raw = u16;
+    type Sym = u8;
+    const RAW_SIZE: Self::Raw = 495; // 12 choose 4
+    const SYM_SIZE: Self::Sym = 45;
 
     fn from_state(state: &State) -> Self {
         let mut k = 4;
@@ -142,11 +185,11 @@ impl Coord for LR {
         Self { coord }
     }
 
-    fn from_repr(repr: Self::Repr) -> Self {
+    fn from_repr(repr: Self::Raw) -> Self {
         Self { coord: repr }
     }
 
-    fn repr(&self) -> Self::Repr {
+    fn repr(&self) -> Self::Raw {
         self.coord
     }
 
@@ -190,29 +233,30 @@ pub struct EOLR {
 }
 
 impl Coord for EOLR {
-    type Repr = u32;
-
-    const COUNT: Self::Repr = EO::COUNT as u32 * LR::COUNT as u32;
+    type Raw = u32;
+    type Sym = u16;
+    const RAW_SIZE: Self::Raw = EO::RAW_SIZE as u32 * LR::RAW_SIZE as u32;
+    const SYM_SIZE: Self::Sym = 64430;
 
     fn from_state(state: &State) -> Self {
         let eo = EO::from_state(state);
         let lr = LR::from_state(state);
         Self {
-            coord: (eo.repr() as u32) * (LR::COUNT as u32) + lr.repr() as u32,
+            coord: (eo.repr() as u32) * (LR::RAW_SIZE as u32) + lr.repr() as u32,
         }
     }
 
-    fn from_repr(repr: Self::Repr) -> Self {
+    fn from_repr(repr: Self::Raw) -> Self {
         Self { coord: repr }
     }
 
-    fn repr(&self) -> Self::Repr {
+    fn repr(&self) -> Self::Raw {
         self.coord
     }
 
     fn sample_state(&self) -> State {
-        let eo = EO::from_repr((self.coord / (LR::COUNT as u32)) as u16);
-        let lr = LR::from_repr((self.coord % (LR::COUNT as u32)) as u16);
+        let eo = EO::from_repr((self.coord / (LR::RAW_SIZE as u32)) as u16);
+        let lr = LR::from_repr((self.coord % (LR::RAW_SIZE as u32)) as u16);
         lr.sample_state() * eo.sample_state()
     }
 }
@@ -235,7 +279,7 @@ mod tests {
     fn test_sample_repr() {
         fn test<C: Coord>() {
             let mut states = HashSet::new();
-            for repr in range(Zero::zero(), C::COUNT) {
+            for repr in range(Zero::zero(), C::RAW_SIZE) {
                 let coord = C::from_repr(repr);
                 assert_eq!(coord.repr(), repr);
                 let state = coord.sample_state();
@@ -246,10 +290,13 @@ mod tests {
                 // Check closure
                 for mv in Move::BASIC_MOVES {
                     let next_coord = C::from_state(&(mv * state));
-                    assert!(next_coord.repr() < C::COUNT)
+                    assert!(next_coord.repr() < C::RAW_SIZE)
                 }
             }
-            assert_eq!(states.len(), num::cast::<C::Repr, usize>(C::COUNT).unwrap());
+            assert_eq!(
+                states.len(),
+                num::cast::<C::Raw, usize>(C::RAW_SIZE).unwrap()
+            );
         }
 
         test::<CO>();
