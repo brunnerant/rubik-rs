@@ -2,7 +2,7 @@ use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group};
 use itertools::iproduct;
-use rubik_lib::model::state::State;
+use rubik_lib::core::state::State;
 
 criterion_group!(state, bench_mul, bench_inv);
 

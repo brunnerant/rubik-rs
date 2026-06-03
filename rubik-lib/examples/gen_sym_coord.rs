@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use rubik_lib::model::{
+use rubik_lib::core::{
     coord::{CO, Coord, EO, EOLR, LR},
     sym::Symmetries,
     sym_coord::SymCoordTable,

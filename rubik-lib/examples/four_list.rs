@@ -3,7 +3,7 @@ use std::io::Write;
 use itertools::join;
 use rand::RngExt;
 use rubik_lib::{
-    model::{moves::Move, state::State},
+    core::{moves::Move, state::State},
     solve::four_list::Solver,
 };
 

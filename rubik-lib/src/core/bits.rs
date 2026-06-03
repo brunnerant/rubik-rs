@@ -69,7 +69,7 @@ pub fn serialize_array<T: Int>(array: &[T]) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use crate::model::bits::{
+    use crate::core::bits::{
         bitwise_add_mod_3, bitwise_inv_mod_3, deserialize_array, serialize_array,
     };
 

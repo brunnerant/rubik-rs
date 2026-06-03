@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use smallvec::{SmallVec, smallvec};
 
-use crate::model::{bits, state::State};
+use crate::core::{bits, state::State};
 
 pub struct TrieBuilder {
     branches: Vec<usize>,
@@ -270,7 +270,7 @@ mod tests {
     use itertools::Itertools;
 
     use crate::{
-        model::{moves::Moves, state::State},
+        core::{moves::Moves, state::State},
         solve::four_list::trie::TrieBuilder,
     };
 

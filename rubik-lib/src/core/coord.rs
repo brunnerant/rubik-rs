@@ -7,7 +7,7 @@
 use num::{Zero, iter::Range, range};
 use std::fmt::Debug;
 
-use crate::model::{bits::Int, state::State};
+use crate::core::{bits::Int, state::State};
 
 pub trait Coord: Eq + Copy + Debug {
     /// The smallest bitfield that can contain this raw coordinate.
@@ -268,7 +268,7 @@ mod tests {
     use itertools::Itertools;
     use num::{Zero, range};
 
-    use crate::model::{
+    use crate::core::{
         coord::{CO, Coord, EO, EOLR, LR},
         moves::Move,
         state::State,

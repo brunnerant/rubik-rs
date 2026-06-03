@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use derive_more::derive::Display;
 use smallvec::{SmallVec, smallvec};
 
-use crate::model::state::State;
+use crate::core::state::State;
 
 #[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Face {
@@ -320,7 +320,7 @@ mod tests {
     use itertools::Itertools;
     use smallvec::{SmallVec, smallvec};
 
-    use crate::model::{
+    use crate::core::{
         moves::{Move, Moves},
         state::State,
     };

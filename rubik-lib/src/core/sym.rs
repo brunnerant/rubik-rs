@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 use itertools::iproduct;
 
-use crate::model::state::State;
+use crate::core::state::State;
 
 /// Rotating the whole cube clockwise around the L axis (same direction as the face turn L).
 pub const ROT_L: State = State {
@@ -156,7 +156,7 @@ mod tests {
 
     use itertools::join;
 
-    use crate::model::{
+    use crate::core::{
         moves::{Direction, Face, Move},
         state::State,
         sym::{MIR_LR, ROT_L, ROT_LBD, ROT_U2, Symmetries},

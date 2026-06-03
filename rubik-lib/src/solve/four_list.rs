@@ -7,7 +7,7 @@ pub mod product;
 pub mod trie;
 
 use crate::{
-    model::{
+    core::{
         moves::{Move, Moves},
         state::State,
     },
@@ -109,7 +109,7 @@ impl Iterator for Solver {
 #[cfg(test)]
 mod tests {
     use crate::{
-        model::{moves::Move, state::State},
+        core::{moves::Move, state::State},
         solve::four_list::Solver,
     };
 

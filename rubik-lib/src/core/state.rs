@@ -1,4 +1,4 @@
-use crate::model::{bits, moves::Move};
+use crate::core::{bits, moves::Move};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub struct State {
@@ -355,8 +355,8 @@ mod tests {
     use itertools::iproduct;
 
     use crate::{
-        model::moves::{Direction, Face, Move},
-        model::state::State,
+        core::moves::{Direction, Face, Move},
+        core::state::State,
     };
 
     fn assert_distinct<T: Eq + Hash>(iter: impl Iterator<Item = T>) {
