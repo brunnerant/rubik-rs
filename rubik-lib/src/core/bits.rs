@@ -89,7 +89,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serde_arrays() {
+    fn serialize() {
         let array: [u32; _] = [1, 2, 3, 4, 5, 6, 7, 8];
         assert_eq!(&deserialize_array::<u32>(&serialize_array(&array)), &array)
     }

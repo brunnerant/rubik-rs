@@ -3,7 +3,7 @@ use std::{
     io::{Read, Write},
 };
 
-use num::{Zero, range, traits::FromBytes};
+use num::{Zero, traits::FromBytes};
 
 use crate::{
     algebra::{coord::Coord, sym::Symmetries},
@@ -21,13 +21,13 @@ use crate::{
 /// index of the equivalence class.
 pub struct SymCoordTable<C: Coord> {
     raw_to_repr: HashMap<C::Raw, C::Sym>,
-    repr_to_raw: Vec<C::Raw>,
+    pub repr_to_raw: Vec<C::Raw>,
 }
 
 impl<C: Coord> SymCoordTable<C> {
     pub fn build(sym: &Symmetries) -> Self {
         let mut raw_to_repr = HashMap::new();
-        for c in range(Zero::zero(), C::RAW_SIZE) {
+        for c in C::all_raw_coords() {
             let s = C::from_repr(c).sample_state();
             let raw = (0..sym.size())
                 .map(|i| C::from_state(&sym.conj_inv(s, i)).repr())
@@ -52,7 +52,7 @@ impl<C: Coord> SymCoordTable<C> {
         }
     }
 
-    pub fn coord(&self, state: State, sym: &Symmetries) -> C::Raw {
+    pub fn sym_coord(&self, state: State, sym: &Symmetries) -> C::Raw {
         for i in 0..sym.size() {
             let raw = C::from_state(&sym.conj_inv(state, i)).repr();
             if let Some(&coord) = self.raw_to_repr.get(&raw) {
@@ -60,6 +60,13 @@ impl<C: Coord> SymCoordTable<C> {
             }
         }
         unreachable!("a state always has a sym-coord");
+    }
+
+    pub fn raw_coord(&self, sym_coord: C::Raw, sym: &Symmetries) -> C::Raw {
+        let (s, i) = C::unpack_sym_coord(sym_coord);
+        let raw = self.repr_to_raw[C::sym_to_usize(s)];
+        let s = sym.conj(C::from_repr(raw).sample_state(), i);
+        C::from_state(&s).repr()
     }
 
     pub fn repr(&self, coord: C::Sym) -> State {
@@ -93,53 +100,37 @@ impl<C: Coord> SymCoordTable<C> {
     }
 }
 
-pub struct SymCoordMoveTable<C: Coord> {
-    move_table: Vec<C::Raw>,
-}
-
-impl<C: Coord> SymCoordMoveTable<C> {
-    pub fn build(sym_coord: &SymCoordTable<C>, sym: &Symmetries) -> Self {
-        let mut move_table = Vec::with_capacity(sym_coord.size() * State::BASIC_MOVES.len());
-        for coord in range(Zero::zero(), C::usize_to_sym(sym_coord.size())) {
-            let state = sym_coord.repr(coord);
-            for i in 0..State::BASIC_MOVES.len() {
-                println!("{coord} {i}{state}{}", State::BASIC_MOVES[i] * state);
-                move_table.push(sym_coord.coord(State::BASIC_MOVES[i] * state, sym));
-            }
-        }
-        Self { move_table }
-    }
-
-    pub fn coord_mv(&self, coord: C::Raw, mv: u8, sym: &Symmetries) -> C::Raw {
-        let (i, j) = C::unpack_sym_coord(coord);
-        let mv = sym.conj_inv_mv(mv, j);
-        let coord = self.move_table[18 * C::sym_to_usize(i) + mv as usize];
-        let (k, l) = C::unpack_sym_coord(coord);
-        C::pack_sym_coord(k, sym.prod(l, j))
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
-    use crate::algebra::{
-        coord::{CO, Coord, EOLR, LR},
-        sym::Symmetries,
-        sym_coord::{SymCoordMoveTable, SymCoordTable},
+    use crate::{
+        algebra::{
+            coord::{CO, Coord, EOLR, LR},
+            sym::Symmetries,
+            sym_coord::SymCoordTable,
+        },
+        core::moves::Moves,
     };
 
     #[test]
-    fn test_sym_coords() {
+    fn sym_coords() {
         fn test<C: Coord>(sym: &Symmetries) {
             let table = SymCoordTable::<C>::build(sym);
-            for i in 0..table.size() {
-                assert_eq!(C::usize_to_sym(i), table.raw_to_repr[&table.repr_to_raw[i]]);
+            for i in C::all_sym_coords() {
+                assert_eq!(i, table.raw_to_repr[&table.repr_to_raw[C::sym_to_usize(i)]]);
             }
-            let _ = SymCoordMoveTable::build(&table, sym);
+            for (_, s) in Moves::to_depth(3) {
+                let raw_coord = C::from_state(&s).repr();
+                let sym_coord = table.sym_coord(s, sym);
+                assert_eq!(raw_coord, table.raw_coord(sym_coord, sym));
+                let (i, j) = C::unpack_sym_coord(sym_coord);
+                let ri = C::from_repr(table.repr_to_raw[C::sym_to_usize(i)]).sample_state();
+                assert_eq!(raw_coord, C::from_state(&sym.conj(ri, j)).repr());
+            }
         }
         let sym = Symmetries::sub16();
         test::<CO>(&sym);
-        // test::<EO>(&sym); The EO coord is not really compatible with the symmetries. Needs investigation.
+        // test::<EO>(&sym); The EO coord is not compatible with those symmetries.
         test::<LR>(&sym);
         test::<EOLR>(&sym);
     }

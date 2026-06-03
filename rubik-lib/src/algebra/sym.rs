@@ -69,10 +69,11 @@ impl Symmetries {
             }
         }
 
-        let mut elem_to_idx = HashMap::with_capacity(elems.len());
-        for (i, e) in elems.iter().enumerate() {
-            elem_to_idx.insert(e, i as u8);
-        }
+        let elem_to_idx: HashMap<_, _> = elems
+            .iter()
+            .enumerate()
+            .map(|(i, &e)| (e, i as u8))
+            .collect();
         let mut sym = Self {
             elems: elems.clone(),
             inv: Vec::with_capacity(elems.len()),
@@ -87,9 +88,9 @@ impl Symmetries {
         }
         let state_to_mv: HashMap<_, _> =
             (0..18).map(|i| (State::BASIC_MOVES[i], i as u8)).collect();
-        for (i, m) in iproduct!(0..elems.len(), 0..18) {
+        for (s, m) in iproduct!(0..elems.len(), 0..18) {
             sym.conj_inv_mv
-                .push(state_to_mv[&sym.conj_inv(State::BASIC_MOVES[m], i as u8)]);
+                .push(state_to_mv[&sym.conj_inv(State::BASIC_MOVES[m], s as u8)]);
         }
         sym
     }
@@ -121,7 +122,7 @@ impl Symmetries {
 
     /// The product of symmetries with the given indices
     pub fn prod(&self, s1: u8, s2: u8) -> u8 {
-        self.comp[(8 * s1 + s2) as usize]
+        self.comp[self.elems.len() * s1 as usize + s2 as usize]
     }
 
     /// The state resulting from applying this state under the given symmetry.
@@ -136,7 +137,7 @@ impl Symmetries {
 
     /// The conjugated move using the given symmetry.
     pub fn conj_inv_mv(&self, mv: u8, s: u8) -> u8 {
-        self.conj_inv_mv[(s * 18 + mv) as usize]
+        self.conj_inv_mv[s as usize * 18 + mv as usize]
     }
 
     /// The representative state for the sym-class of the given state.
@@ -154,7 +155,7 @@ impl Symmetries {
 mod tests {
     use std::collections::{HashMap, HashSet};
 
-    use itertools::join;
+    use itertools::{iproduct, join};
 
     use crate::{
         algebra::sym::{MIR_LR, ROT_L, ROT_LBD, ROT_U2, Symmetries},
@@ -177,11 +178,11 @@ mod tests {
         assert_eq!(((a * (b * c)) * d) * e, rhs);
     }
 
-    fn test_conj(mv1: Move, mv2: Move, sym: State) {
+    fn check_conj(mv1: Move, mv2: Move, sym: State) {
         assert_eq!(sym.inv() * mv2 * sym, mv1.into());
     }
 
-    fn test_order(state: State, order: usize) {
+    fn check_order(state: State, order: usize) {
         let mut power = State::ID;
         for _ in 0..order {
             power = power * state;
@@ -191,46 +192,46 @@ mod tests {
 
     #[test]
     fn rot_lbd() {
-        test_conj(Move::U, Move::F, ROT_LBD);
-        test_conj(Move::F, Move::R, ROT_LBD);
-        test_conj(Move::R, Move::U, ROT_LBD);
-        test_conj(Move::L, Move::D, ROT_LBD);
-        test_conj(Move::B, Move::L, ROT_LBD);
-        test_conj(Move::D, Move::B, ROT_LBD);
-        test_order(ROT_LBD, 3);
+        check_conj(Move::U, Move::F, ROT_LBD);
+        check_conj(Move::F, Move::R, ROT_LBD);
+        check_conj(Move::R, Move::U, ROT_LBD);
+        check_conj(Move::L, Move::D, ROT_LBD);
+        check_conj(Move::B, Move::L, ROT_LBD);
+        check_conj(Move::D, Move::B, ROT_LBD);
+        check_order(ROT_LBD, 3);
     }
 
     #[test]
     fn rot_l() {
-        test_conj(Move::L, Move::L, ROT_L);
-        test_conj(Move::R, Move::R, ROT_L);
-        test_conj(Move::U, Move::F, ROT_L);
-        test_conj(Move::F, Move::D, ROT_L);
-        test_conj(Move::D, Move::B, ROT_L);
-        test_conj(Move::B, Move::U, ROT_L);
-        test_order(ROT_L, 4);
+        check_conj(Move::L, Move::L, ROT_L);
+        check_conj(Move::R, Move::R, ROT_L);
+        check_conj(Move::U, Move::F, ROT_L);
+        check_conj(Move::F, Move::D, ROT_L);
+        check_conj(Move::D, Move::B, ROT_L);
+        check_conj(Move::B, Move::U, ROT_L);
+        check_order(ROT_L, 4);
     }
 
     #[test]
     fn rot_u2() {
-        test_conj(Move::U, Move::U, ROT_U2);
-        test_conj(Move::D, Move::D, ROT_U2);
-        test_conj(Move::L, Move::R, ROT_U2);
-        test_conj(Move::R, Move::L, ROT_U2);
-        test_conj(Move::B, Move::F, ROT_U2);
-        test_conj(Move::F, Move::B, ROT_U2);
-        test_order(ROT_U2, 2);
+        check_conj(Move::U, Move::U, ROT_U2);
+        check_conj(Move::D, Move::D, ROT_U2);
+        check_conj(Move::L, Move::R, ROT_U2);
+        check_conj(Move::R, Move::L, ROT_U2);
+        check_conj(Move::B, Move::F, ROT_U2);
+        check_conj(Move::F, Move::B, ROT_U2);
+        check_order(ROT_U2, 2);
     }
 
     #[test]
     fn mir_lr() {
-        test_conj(Move::L, Move::R_, MIR_LR);
-        test_conj(Move::R, Move::L_, MIR_LR);
-        test_conj(Move::D, Move::D_, MIR_LR);
-        test_conj(Move::U, Move::U_, MIR_LR);
-        test_conj(Move::B, Move::B_, MIR_LR);
-        test_conj(Move::F, Move::F_, MIR_LR);
-        test_order(MIR_LR, 2);
+        check_conj(Move::L, Move::R_, MIR_LR);
+        check_conj(Move::R, Move::L_, MIR_LR);
+        check_conj(Move::D, Move::D_, MIR_LR);
+        check_conj(Move::U, Move::U_, MIR_LR);
+        check_conj(Move::B, Move::B_, MIR_LR);
+        check_conj(Move::F, Move::F_, MIR_LR);
+        check_order(MIR_LR, 2);
     }
 
     #[test]
@@ -241,6 +242,28 @@ mod tests {
     #[test]
     fn reduced_symmetries_form_a_group() {
         let _ = Symmetries::sub16();
+    }
+
+    #[test]
+    fn symmetries_op() {
+        let sym = Symmetries::all();
+        let m = Move::L * Move::R * Move::U; // a random move
+        for i in 0..48 {
+            let s = sym.sym(i);
+            assert_eq!(s.inv(), sym.sym(sym.inv(i)));
+            assert_eq!(s.inv() * m * s, sym.conj(m, i));
+            assert_eq!(s * m * s.inv(), sym.conj_inv(m, i));
+            for j in 0..18 {
+                let mv = State::BASIC_MOVES[j as usize];
+                assert_eq!(
+                    s * mv * s.inv(),
+                    State::BASIC_MOVES[sym.conj_inv_mv(j, i) as usize]
+                );
+            }
+        }
+        for (i, j) in iproduct!(0..48, 0..48) {
+            assert_eq!(sym.sym(i) * sym.sym(j), sym.sym(sym.prod(i, j)));
+        }
     }
 
     #[test]

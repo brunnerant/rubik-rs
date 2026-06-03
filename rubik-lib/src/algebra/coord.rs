@@ -12,11 +12,13 @@ use crate::core::{bits::Int, state::State};
 pub trait Coord: Eq + Copy + Debug {
     /// The smallest bitfield that can contain this raw coordinate.
     type Raw: Int;
-    /// The smallest bitfield that can contains this coordinate reduced by symmetry
+    /// The smallest bitfield that can contains this coordinate reduced by symmetry.
+    /// Note that this type should always be smaller or equal to the raw type.
     type Sym: Int;
 
     /// The number of different values that this coordinate supports.
     const RAW_SIZE: Self::Raw;
+    /// The number of different values that this coordinate supports when reduced by symmetry.
     const SYM_SIZE: Self::Sym;
 
     /// Builds a coordinate from a state
@@ -36,6 +38,9 @@ pub trait Coord: Eq + Copy + Debug {
     fn sym_to_usize(i: Self::Sym) -> usize {
         unsafe { num::cast::<Self::Sym, usize>(i).unwrap_unchecked() }
     }
+    fn raw_to_usize(i: Self::Raw) -> usize {
+        unsafe { num::cast::<Self::Raw, usize>(i).unwrap_unchecked() }
+    }
     fn sym_to_raw(i: Self::Sym) -> Self::Raw {
         unsafe { num::cast::<Self::Sym, Self::Raw>(i).unwrap_unchecked() }
     }
@@ -54,10 +59,10 @@ pub trait Coord: Eq + Copy + Debug {
     }
 
     // Coordinate iteration helpers
-    fn all_raw() -> Range<Self::Raw> {
+    fn all_raw_coords() -> Range<Self::Raw> {
         range(Zero::zero(), Self::RAW_SIZE)
     }
-    fn all_sym() -> Range<Self::Sym> {
+    fn all_sym_coords() -> Range<Self::Sym> {
         range(Zero::zero(), Self::SYM_SIZE)
     }
 }
@@ -277,7 +282,7 @@ mod tests {
     };
 
     #[test]
-    fn test_sample_repr() {
+    fn sample_repr() {
         fn test<C: Coord>() {
             let mut states = HashSet::new();
             for repr in range(Zero::zero(), C::RAW_SIZE) {
@@ -321,7 +326,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sym_invariance() {
+    fn sym_invariance() {
         let full_sym = Symmetries::all();
         let red_sym = Symmetries::sub16();
         let elems = [State::ID, State::L];
