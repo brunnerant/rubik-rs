@@ -268,11 +268,12 @@ mod tests {
     use itertools::Itertools;
     use num::{Zero, range};
 
-    use crate::core::{
-        coord::{CO, Coord, EO, EOLR, LR},
-        moves::Move,
-        state::State,
-        sym::Symmetries,
+    use crate::{
+        algebra::{
+            coord::{CO, Coord, EO, EOLR, LR},
+            sym::Symmetries,
+        },
+        core::{moves::Move, state::State},
     };
 
     #[test]

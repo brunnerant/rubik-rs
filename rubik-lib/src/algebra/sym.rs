@@ -156,10 +156,12 @@ mod tests {
 
     use itertools::join;
 
-    use crate::core::{
-        moves::{Direction, Face, Move},
-        state::State,
-        sym::{MIR_LR, ROT_L, ROT_LBD, ROT_U2, Symmetries},
+    use crate::{
+        algebra::sym::{MIR_LR, ROT_L, ROT_LBD, ROT_U2, Symmetries},
+        core::{
+            moves::{Direction, Face, Move},
+            state::State,
+        },
     };
 
     #[test]

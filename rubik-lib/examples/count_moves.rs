@@ -4,7 +4,10 @@ use std::{
 };
 
 use itertools::Itertools;
-use rubik_lib::core::{moves::Moves, state::State, sym::Symmetries};
+use rubik_lib::{
+    algebra::sym::Symmetries,
+    core::{moves::Moves, state::State},
+};
 
 fn main() {
     const DEFAULT_DEPTH: u8 = 5;

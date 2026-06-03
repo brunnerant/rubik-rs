@@ -5,11 +5,12 @@ use std::{
 
 use num::{Zero, range, traits::FromBytes};
 
-use crate::core::{
-    bits::{self, serialize_array},
-    coord::Coord,
-    state::State,
-    sym::Symmetries,
+use crate::{
+    algebra::{coord::Coord, sym::Symmetries},
+    core::{
+        bits::{self, serialize_array},
+        state::State,
+    },
 };
 
 /// Sym-coords are coordinates that are reduced by symmetries. This allows to have more
@@ -121,7 +122,7 @@ impl<C: Coord> SymCoordMoveTable<C> {
 #[cfg(test)]
 mod tests {
 
-    use crate::core::{
+    use crate::algebra::{
         coord::{CO, Coord, EOLR, LR},
         sym::Symmetries,
         sym_coord::{SymCoordMoveTable, SymCoordTable},
