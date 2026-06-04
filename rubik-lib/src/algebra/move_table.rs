@@ -91,9 +91,17 @@ mod tests {
             for (_, s) in Moves::to_depth(3) {
                 let coord = sym_coord.sym_coord(s, sym);
                 for i in 0..18 {
-                    let new_coord = move_table.coord_mv(coord, i, sym);
+                    let actual = move_table.coord_mv(coord, i, sym);
                     let expected = sym_coord.sym_coord(s * State::BASIC_MOVES[i as usize], sym);
-                    assert_eq!(expected, new_coord);
+
+                    // Here there is a tricky bit:
+                    // It is possible that the two sym coords are different, but that they map to the same
+                    // raw coordinate. Therefore, we must compare the raw coordinates in order to test the move table.
+                    // This can happen because two sym coords (i, j1) and (i, j2) map to the same raw coordinate due
+                    // to internal symmetries of the corresponding raw coordinate.
+                    let actual_raw = sym_coord.raw_coord(actual, sym);
+                    let expected_raw = sym_coord.raw_coord(expected, sym);
+                    assert_eq!(actual_raw, expected_raw);
                 }
             }
         }

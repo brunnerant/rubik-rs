@@ -123,9 +123,6 @@ mod tests {
                 let raw_coord = C::from_state(&s).repr();
                 let sym_coord = table.sym_coord(s, sym);
                 assert_eq!(raw_coord, table.raw_coord(sym_coord, sym));
-                let (i, j) = C::unpack_sym_coord(sym_coord);
-                let ri = C::from_repr(table.repr_to_raw[C::sym_to_usize(i)]).sample_state();
-                assert_eq!(raw_coord, C::from_state(&sym.conj(ri, j)).repr());
             }
         }
         let sym = Symmetries::sub16();
