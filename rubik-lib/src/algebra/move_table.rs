@@ -1,4 +1,3 @@
-
 use crate::{
     algebra::{coord::Coord, sym::Symmetries, sym_coord::SymCoordTable},
     core::state::State,
@@ -15,7 +14,7 @@ impl<C: Coord> RawCoordMoveTable<C> {
             let s = C::from_repr(coord).sample_state();
             for i in 0..18 {
                 let new_coord = C::from_state(&(s * State::BASIC_MOVES[i])).repr();
-                move_table.push(new_coord);                
+                move_table.push(new_coord);
             }
         }
         Self { move_table }
@@ -50,13 +49,40 @@ impl<C: Coord> SymCoordMoveTable<C> {
     }
 }
 
+pub struct RawCoordSymTable<C: Coord> {
+    sym_table: Vec<C::Raw>,
+    sym_size: usize,
+}
+
+impl<C: Coord> RawCoordSymTable<C> {
+    pub fn build(sym: &Symmetries) -> Self {
+        let sym_size = sym.size() as usize;
+        let mut sym_table = Vec::with_capacity(C::raw_to_usize(C::RAW_SIZE) * sym_size);
+        for coord in C::all_raw_coords() {
+            let s = C::from_repr(coord).sample_state();
+            for i in 0..sym.size() {
+                let new_coord = C::from_state(&sym.conj(s, i)).repr();
+                sym_table.push(new_coord);
+            }
+        }
+        Self {
+            sym_table,
+            sym_size,
+        }
+    }
+
+    pub fn coord_sym(&self, coord: C::Raw, s: u8) -> C::Raw {
+        self.sym_table[C::raw_to_usize(coord) * self.sym_size + s as usize]
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
     use crate::{
         algebra::{
             coord::{CO, Coord, EO, EOLR, LR},
-            move_table::{RawCoordMoveTable, SymCoordMoveTable},
+            move_table::{RawCoordMoveTable, RawCoordSymTable, SymCoordMoveTable},
             sym::Symmetries,
             sym_coord::SymCoordTable,
         },
@@ -64,7 +90,7 @@ mod tests {
     };
 
     #[test]
-    fn raw() {
+    fn raw_mv() {
         fn test<C: Coord>() {
             let move_table = RawCoordMoveTable::<C>::build();
             for (_, s) in Moves::to_depth(3) {
@@ -84,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn sym() {
+    fn sym_mv() {
         fn test<C: Coord>(sym: &Symmetries) {
             let sym_coord = SymCoordTable::<C>::build(sym);
             let move_table = SymCoordMoveTable::build(&sym_coord, sym);
@@ -102,6 +128,27 @@ mod tests {
                     let actual_raw = sym_coord.raw_coord(actual, sym);
                     let expected_raw = sym_coord.raw_coord(expected, sym);
                     assert_eq!(actual_raw, expected_raw);
+                }
+            }
+        }
+
+        let sym = Symmetries::sub16();
+        test::<CO>(&sym);
+        test::<LR>(&sym);
+        test::<EOLR>(&sym);
+    }
+
+    #[test]
+    fn raw_sym() {
+        fn test<C: Coord>(sym: &Symmetries) {
+            let sym_table = RawCoordSymTable::<C>::build(sym);
+            for (_, s) in Moves::to_depth(3) {
+                let coord = C::from_state(&s).repr();
+                for i in 0..sym.size() {
+                    let new_s = sym.conj(s, i);
+                    let new_coord_expected = C::from_state(&new_s).repr();
+                    let new_coord_actual = sym_table.coord_sym(coord, i);
+                    assert_eq!(new_coord_expected, new_coord_actual);
                 }
             }
         }
