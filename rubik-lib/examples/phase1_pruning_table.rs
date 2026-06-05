@@ -11,7 +11,9 @@ fn main() {
     let pruning_table = phase1::PruningTable::build(&coords);
     let mut writer =
         BufWriter::new(File::create("data/phase1-pruning.bin").expect("couldn't open file"));
+    print!("Writing the pruning table to 'data/phase1-pruning.bin'...");
     writer
         .write_all(pruning_table.buffer())
         .expect("failed to write to file");
+    println!(" Done.");
 }

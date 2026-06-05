@@ -59,9 +59,9 @@ impl PruningTable {
         &self.table
     }
 
-    pub fn dist(&self, eolr: EOLRRaw, co: CORaw, co_sym: &RawCoordSymTable<CO>) -> u8 {
+    pub fn dist(&self, eolr: EOLRRaw, co: CORaw, coords: &Coords) -> u8 {
         let (i, j) = EOLR::unpack_sym_coord(eolr);
-        let co = co_sym.coord_sym_inv(co, j);
+        let co = coords.co_sym.coord_sym(co, coords.sym.inv(j));
         let idx = i as u32 * CO::RAW_SIZE as u32 + co as u32;
         let byte_idx = (idx >> 2) as usize;
         let bit_idx = (idx & 0b11) << 1;
@@ -137,8 +137,8 @@ impl<'a> PruningTableBuilder<'a> {
     fn insert(&mut self, eolr: EOLRRaw, co: CORaw) {
         let (i, j) = EOLR::unpack_sym_coord(eolr);
         for &k in self.coords.eolr_coord.internal_sym(i) {
-            let s = self.coords.sym.prod(j, self.coords.sym.inv(k));
-            let next_co = self.coords.co_sym.coord_sym_inv(co, s);
+            let s = self.coords.sym.prod(self.coords.sym.inv(j), k);
+            let next_co = self.coords.co_sym.coord_sym(co, s);
             let idx = i as u32 * CO::RAW_SIZE as u32 + next_co as u32;
             if self.get(idx) == 0b11 {
                 self.set(idx, self.depth % 3);

@@ -61,7 +61,7 @@ impl<C: Coord> RawCoordSymTable<C> {
         for coord in C::all_raw_coords() {
             let s = C::from_repr(coord).sample_state();
             for i in 0..sym.size() {
-                let new_coord = C::from_state(&sym.conj_inv(s, i)).repr();
+                let new_coord = C::from_state(&sym.conj(s, i)).repr();
                 sym_table.push(new_coord);
             }
         }
@@ -71,7 +71,7 @@ impl<C: Coord> RawCoordSymTable<C> {
         }
     }
 
-    pub fn coord_sym_inv(&self, coord: C::Raw, s: u8) -> C::Raw {
+    pub fn coord_sym(&self, coord: C::Raw, s: u8) -> C::Raw {
         self.sym_table[C::raw_to_usize(coord) * self.sym_size + s as usize]
     }
 }
@@ -145,9 +145,9 @@ mod tests {
             for (_, s) in Moves::to_depth(3) {
                 let coord = C::from_state(&s).repr();
                 for i in 0..sym.size() {
-                    let new_s = sym.conj_inv(s, i);
+                    let new_s = sym.conj(s, i);
                     let new_coord_expected = C::from_state(&new_s).repr();
-                    let new_coord_actual = sym_table.coord_sym_inv(coord, i);
+                    let new_coord_actual = sym_table.coord_sym(coord, i);
                     assert_eq!(new_coord_expected, new_coord_actual);
                 }
             }
