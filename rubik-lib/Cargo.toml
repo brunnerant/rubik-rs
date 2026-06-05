@@ -8,10 +8,10 @@ derive_more = { version = "2.1.1", features = ["display"] }
 itertools = "0.14.0"
 num = "0.4.3"
 smallvec = { version = "1.15.1", features = ["union"] }
+rand = "0.10.1"
 
 [dev-dependencies]
 criterion = "0.8.2"
-rand = "0.10.1"
 
 [[bench]]
 name = "main"
