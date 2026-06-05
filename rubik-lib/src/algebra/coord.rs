@@ -262,7 +262,7 @@ impl Coord for EOLR {
     fn sample_state(&self) -> State {
         let eo = EO::from_repr((self.coord / (LR::RAW_SIZE as u32)) as u16);
         let lr = LR::from_repr((self.coord % (LR::RAW_SIZE as u32)) as u16);
-        lr.sample_state() * eo.sample_state()
+        eo.sample_state() * lr.sample_state()
     }
 }
 

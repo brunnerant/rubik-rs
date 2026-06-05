@@ -9,7 +9,7 @@ use crate::{
 struct Entry {
     left: State,
     right: State,
-    right_iter: TriePtr,
+    left_iter: TriePtr,
 }
 
 #[derive(PartialEq, Eq, Clone)]
@@ -31,12 +31,12 @@ impl std::cmp::PartialOrd for HeapElem {
 }
 
 impl Entry {
-    fn first(left: State, trie: &Trie) -> Option<Self> {
-        let mut right_iter = TriePtr::first(left);
-        right_iter.next(trie).map(|right| Self {
+    fn first(right: State, trie: &Trie) -> Option<Self> {
+        let mut left_iter = TriePtr::first(right);
+        left_iter.next(trie).map(|left| Self {
             left,
             right,
-            right_iter,
+            left_iter,
         })
     }
 }
@@ -51,14 +51,14 @@ pub struct Product {
 /// Allows to iterate over the cartesian product of states in sorted order.
 impl Product {
     pub fn sorted(left: impl Iterator<Item = State>, right: impl Iterator<Item = State>) -> Self {
-        let mut trie = TrieBuilder::new();
-        for s in right {
+        let mut trie: TrieBuilder = TrieBuilder::new();
+        for s in left {
             trie.insert(s);
         }
         let trie = trie.build();
         let mut entries = Vec::new();
         let mut queue = BinaryHeap::new();
-        for s in left {
+        for s in right {
             if let Some(entry) = Entry::first(s, &trie) {
                 queue.push(HeapElem {
                     product: entry.left * entry.right,
@@ -84,8 +84,8 @@ impl Iterator for Product {
             let left = entry.left;
             let right = entry.right;
             let product = elem.product;
-            if let Some(state) = entry.right_iter.next(&self.trie) {
-                entry.right = state;
+            if let Some(state) = entry.left_iter.next(&self.trie) {
+                entry.left = state;
                 elem.product = entry.left * entry.right;
                 self.queue.push(elem);
             };

@@ -13,7 +13,7 @@ impl<C: Coord> RawCoordMoveTable<C> {
         for coord in C::all_raw_coords() {
             let s = C::from_repr(coord).sample_state();
             for i in 0..18 {
-                let new_coord = C::from_state(&(s * State::BASIC_MOVES[i])).repr();
+                let new_coord = C::from_state(&(State::BASIC_MOVES[i] * s)).repr();
                 move_table.push(new_coord);
             }
         }
@@ -35,7 +35,7 @@ impl<C: Coord> SymCoordMoveTable<C> {
         for coord in C::all_sym_coords() {
             let s = sym_coord.repr(coord);
             for i in 0..18 {
-                move_table.push(sym_coord.sym_coord(s * State::BASIC_MOVES[i], sym));
+                move_table.push(sym_coord.sym_coord(State::BASIC_MOVES[i] * s, sym));
             }
         }
         Self { move_table }
@@ -97,7 +97,7 @@ mod tests {
                 let coord = C::from_state(&s).repr();
                 for i in 0..18 {
                     let new_coord = move_table.coord_mv(coord, i);
-                    let expected = C::from_state(&(s * State::BASIC_MOVES[i as usize])).repr();
+                    let expected = C::from_state(&(State::BASIC_MOVES[i as usize] * s)).repr();
                     assert_eq!(expected, new_coord);
                 }
             }
@@ -118,7 +118,7 @@ mod tests {
                 let coord = sym_coord.sym_coord(s, sym);
                 for i in 0..18 {
                     let actual = move_table.coord_mv(coord, i, sym);
-                    let expected = sym_coord.sym_coord(s * State::BASIC_MOVES[i as usize], sym);
+                    let expected = sym_coord.sym_coord(State::BASIC_MOVES[i as usize] * s, sym);
 
                     // Here there is a tricky bit:
                     // It is possible that the two sym coords are different, but that they map to the same
