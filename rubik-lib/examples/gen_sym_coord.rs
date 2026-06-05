@@ -17,13 +17,13 @@ fn create_table<C: Coord>(sym: &Symmetries, output_file: &str) {
     let sym_table = SymCoordTable::<C>::build(sym);
     println!(" Done. ({} elements)", sym_table.size());
     let mut writer = BufWriter::new(File::create(output_file).expect("couldn't open file"));
-    sym_table
-        .serialize(&mut writer)
-        .expect("error while serializing table");
+    writer
+        .write_all(&sym_table.serialize())
+        .expect("failed to write to file");
 }
 
 fn main() {
-    let _ = std::fs::create_dir_all("data");
+    std::fs::create_dir_all("data").expect("failed to create data folder");
     create_table::<CO>(&Symmetries::sub16(), "data/co-sym-coord.bin");
     create_table::<EO>(&Symmetries::sub16(), "data/eo-sym-coord.bin");
     create_table::<LR>(&Symmetries::sub16(), "data/lr-sym-coord.bin");

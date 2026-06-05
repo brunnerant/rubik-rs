@@ -1,16 +1,17 @@
-use rubik_lib::{
-    algebra::{
-        move_table::{RawCoordMoveTable, SymCoordMoveTable},
-        sym::Symmetries,
-        sym_coord::SymCoordTable,
-    },
-    solve::kociemba,
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
 };
 
+use rubik_lib::solve::kociemba::phase1;
+
 fn main() {
-    let sym = Symmetries::sub16();
-    let eolr_coord = SymCoordTable::build(&sym);
-    let eolr_mv = SymCoordMoveTable::build(&eolr_coord, &sym);
-    let co_mv = RawCoordMoveTable::build();
-    let pruning_table = kociemba::phase1::PruningTable::build(&eolr_coord, &eolr_mv, &co_mv, &sym);
+    std::fs::create_dir_all("data").expect("failed to create data folder");
+    let coords = phase1::Coords::build();
+    let pruning_table = phase1::PruningTable::build(&coords);
+    let mut writer =
+        BufWriter::new(File::create("data/phase1-pruning.bin").expect("couldn't open file"));
+    writer
+        .write_all(pruning_table.buffer())
+        .expect("failed to write to file");
 }

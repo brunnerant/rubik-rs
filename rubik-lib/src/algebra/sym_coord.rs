@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    io::{Read, Write},
-};
+use std::collections::HashMap;
 
 use num::{Zero, traits::FromBytes};
 use smallvec::{SmallVec, smallvec};
@@ -107,13 +104,11 @@ impl<C: Coord> SymCoordTable<C> {
         self.repr_to_raw.len()
     }
 
-    pub fn deserialize<Source: Read>(source: &mut Source) -> std::io::Result<Self>
+    pub fn deserialize(buffer: Vec<u8>) -> Self
     where
         for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
         for<'a> &'a [u8]: TryInto<&'a <C::Sym as FromBytes>::Bytes>,
     {
-        let mut buffer = Vec::new();
-        source.read_to_end(&mut buffer)?;
         let (repr_to_raw, buffer) =
             buffer.split_at(C::sym_to_usize(C::SYM_SIZE) * size_of::<C::Raw>());
         let repr_to_raw = deserialize_array::<C::Raw>(repr_to_raw);
@@ -124,18 +119,19 @@ impl<C: Coord> SymCoordTable<C> {
         for (i, &raw) in repr_to_raw.iter().enumerate() {
             raw_to_repr.insert(raw, C::usize_to_sym(i));
         }
-        Ok(Self {
+        Self {
             raw_to_repr,
             repr_to_raw,
             repr_to_symmetries,
             symmetries: symmetries.to_vec(),
-        })
+        }
     }
 
-    pub fn serialize<Sink: Write>(&self, sink: &mut Sink) -> std::io::Result<()> {
-        sink.write_all(&serialize_array(&self.repr_to_raw))?;
-        sink.write_all(&serialize_array(&self.repr_to_symmetries))?;
-        sink.write_all(&self.symmetries)
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        buffer.append(&mut serialize_array(&self.repr_to_raw));
+        buffer.append(&mut serialize_array(&self.repr_to_symmetries));
+        buffer
     }
 }
 
