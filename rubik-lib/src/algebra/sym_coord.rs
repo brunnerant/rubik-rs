@@ -4,11 +4,12 @@ use std::{
 };
 
 use num::{Zero, traits::FromBytes};
+use smallvec::{SmallVec, smallvec};
 
 use crate::{
     algebra::{coord::Coord, sym::Symmetries},
     core::{
-        bits::{self, serialize_array},
+        bits::{deserialize_array, serialize_array},
         state::State,
     },
 };
@@ -22,6 +23,8 @@ use crate::{
 pub struct SymCoordTable<C: Coord> {
     raw_to_repr: HashMap<C::Raw, C::Sym>,
     repr_to_raw: Vec<C::Raw>,
+    repr_to_symmetries: Vec<C::Sym>,
+    symmetries: Vec<u8>,
 }
 
 impl<C: Coord> SymCoordTable<C> {
@@ -46,19 +49,36 @@ impl<C: Coord> SymCoordTable<C> {
         for (&raw, &sym) in raw_to_repr.iter() {
             repr_to_raw[C::sym_to_usize(sym)] = raw;
         }
+        let mut symmetries = vec![];
+        let mut repr_to_symmetries = Vec::with_capacity(C::raw_to_usize(C::RAW_SIZE));
+        let mut syms_to_idx = HashMap::new();
+        for &coord in repr_to_raw.iter() {
+            let state = C::from_repr(coord).sample_state();
+            let mut syms: SmallVec<[_; 16]> = smallvec![];
+            for i in 0..sym.size() {
+                if C::from_state(&sym.conj(state, i)).repr() == coord {
+                    syms.push(i);
+                }
+            }
+            if !syms_to_idx.contains_key(&syms) {
+                syms_to_idx.insert(syms.clone(), symmetries.len());
+                symmetries.push(syms.len() as u8);
+                symmetries.extend(syms.iter().cloned());
+            }
+            repr_to_symmetries.push(C::usize_to_sym(syms_to_idx[&syms]));
+        }
         Self {
             raw_to_repr,
             repr_to_raw,
+            repr_to_symmetries,
+            symmetries,
         }
     }
 
-    pub fn internal_sym(&self, coord: C::Sym, sym: &Symmetries) -> impl Iterator<Item = u8> {
-        let raw = self.repr_to_raw[C::sym_to_usize(coord)];
-        let s = C::from_repr(raw).sample_state();
-        (0..sym.size()).filter(move |&i| {
-            let new_s = sym.conj(s, i);
-            C::from_state(&new_s).repr() == raw
-        })
+    pub fn internal_sym(&self, coord: C::Sym) -> &[u8] {
+        let idx = C::sym_to_usize(self.repr_to_symmetries[C::sym_to_usize(coord)]);
+        let num_sym = self.symmetries[idx] as usize;
+        &self.symmetries[idx + 1..idx + num_sym + 1]
     }
 
     pub fn sym_coord(&self, state: State, sym: &Symmetries) -> C::Raw {
@@ -90,27 +110,39 @@ impl<C: Coord> SymCoordTable<C> {
     pub fn deserialize<Source: Read>(source: &mut Source) -> std::io::Result<Self>
     where
         for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
+        for<'a> &'a [u8]: TryInto<&'a <C::Sym as FromBytes>::Bytes>,
     {
         let mut buffer = Vec::new();
         source.read_to_end(&mut buffer)?;
-        let sym_to_raw = bits::deserialize_array::<C::Raw>(&buffer);
-        let mut raw_to_sym = HashMap::new();
-        for (i, &raw) in sym_to_raw.iter().enumerate() {
-            raw_to_sym.insert(raw, C::usize_to_sym(i));
+        let (repr_to_raw, buffer) =
+            buffer.split_at(C::sym_to_usize(C::SYM_SIZE) * size_of::<C::Raw>());
+        let repr_to_raw = deserialize_array::<C::Raw>(repr_to_raw);
+        let (repr_to_symmetries, symmetries) =
+            buffer.split_at(C::sym_to_usize(C::SYM_SIZE) * size_of::<C::Sym>());
+        let repr_to_symmetries = deserialize_array(repr_to_symmetries);
+        let mut raw_to_repr = HashMap::new();
+        for (i, &raw) in repr_to_raw.iter().enumerate() {
+            raw_to_repr.insert(raw, C::usize_to_sym(i));
         }
         Ok(Self {
-            raw_to_repr: raw_to_sym,
-            repr_to_raw: sym_to_raw,
+            raw_to_repr,
+            repr_to_raw,
+            repr_to_symmetries,
+            symmetries: symmetries.to_vec(),
         })
     }
 
     pub fn serialize<Sink: Write>(&self, sink: &mut Sink) -> std::io::Result<()> {
-        sink.write_all(&serialize_array(&self.repr_to_raw))
+        sink.write_all(&serialize_array(&self.repr_to_raw))?;
+        sink.write_all(&serialize_array(&self.repr_to_symmetries))?;
+        sink.write_all(&self.symmetries)
     }
 }
 
 #[cfg(test)]
 mod tests {
+
+    use std::collections::HashSet;
 
     use crate::{
         algebra::{
@@ -125,9 +157,6 @@ mod tests {
     fn sym_coords() {
         fn test<C: Coord>(sym: &Symmetries) {
             let table = SymCoordTable::<C>::build(sym);
-            for i in C::all_sym_coords() {
-                assert_eq!(i, table.raw_to_repr[&table.repr_to_raw[C::sym_to_usize(i)]]);
-            }
             for (_, s) in Moves::to_depth(3) {
                 let raw_coord = C::from_state(&s).repr();
                 let sym_coord = table.sym_coord(s, sym);
@@ -137,6 +166,27 @@ mod tests {
         let sym = Symmetries::sub16();
         test::<CO>(&sym);
         // test::<EO>(&sym); The EO coord is not compatible with those symmetries.
+        test::<LR>(&sym);
+        test::<EOLR>(&sym);
+    }
+
+    #[test]
+    fn internal_sym() {
+        fn test<C: Coord>(sym: &Symmetries) {
+            let table = SymCoordTable::<C>::build(sym);
+            for coord in C::all_sym_coords() {
+                let raw = table.repr_to_raw[C::sym_to_usize(coord)];
+                let state = C::from_repr(raw).sample_state();
+                let internal: HashSet<_> = table.internal_sym(coord).iter().copied().collect();
+                for s in 0..sym.size() {
+                    let new_raw = C::from_state(&sym.conj(state, s)).repr();
+                    assert_eq!(new_raw == raw, internal.contains(&s));
+                }
+            }
+        }
+
+        let sym = Symmetries::sub16();
+        test::<CO>(&sym);
         test::<LR>(&sym);
         test::<EOLR>(&sym);
     }

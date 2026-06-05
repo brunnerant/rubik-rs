@@ -2,13 +2,14 @@
 //! and where the LR slice has a permutation of the correct edges.
 //! It does so by using EO, CO, and LR coordinates and bringing them down to zero.
 
-use std::collections::HashSet;
+use std::{collections::HashSet, io::Write};
 
 use crate::algebra::{
-        coord::{CO, Coord, EOLR},
-        move_table::{RawCoordMoveTable, RawCoordSymTable, SymCoordMoveTable},
-        sym::Symmetries, sym_coord::SymCoordTable,
-    };
+    coord::{CO, Coord, EOLR},
+    move_table::{RawCoordMoveTable, RawCoordSymTable, SymCoordMoveTable},
+    sym::Symmetries,
+    sym_coord::SymCoordTable,
+};
 
 pub type EOLRRaw = <EOLR as Coord>::Raw;
 pub type EOLRSym = <EOLR as Coord>::Sym;
@@ -30,25 +31,51 @@ impl PruningTable {
     ) -> PruningTable {
         let total_entries = EOLR::sym_to_usize(EOLR::SYM_SIZE) * CO::raw_to_usize(CO::RAW_SIZE);
         let mut table = Self {
-            table: vec![!0; total_entries / 4],
+            table: vec![!0; total_entries.div_ceil(4)],
             sym_table: RawCoordSymTable::build(sym),
         };
         let mut curr_depth = HashSet::new();
         let mut next_depth = HashSet::new();
         let mut num_entries = 0;
-        table.insert(0, 0, 0, &mut num_entries, total_entries, &mut curr_depth, eolr_coord, sym);
-        for d in 0..12 {
+        table.insert(
+            0,
+            0,
+            0,
+            &mut num_entries,
+            total_entries,
+            &mut curr_depth,
+            eolr_coord,
+            sym,
+        );
+        let mut d = 1;
+        'outer: loop {
             for (eolr, co) in curr_depth.drain() {
                 let eolr = EOLR::pack_sym_coord(eolr, 0);
                 for mv in 0..18 {
                     let next_eolr = eolr_mv.coord_mv(eolr, mv, sym);
                     let next_co = co_mv.coord_mv(co, mv);
-                    table.insert(next_eolr, next_co, d + 1, &mut num_entries, total_entries, &mut next_depth, eolr_coord, sym);
+                    table.insert(
+                        next_eolr,
+                        next_co,
+                        d,
+                        &mut num_entries,
+                        total_entries,
+                        &mut next_depth,
+                        eolr_coord,
+                        sym,
+                    );
+                    if num_entries == total_entries {
+                        break 'outer;
+                    }
                 }
             }
+            println!(
+                "\rdepth {d} done. number of entries for next depth: {}M",
+                next_depth.len() / 1_000_000
+            );
             std::mem::swap(&mut curr_depth, &mut next_depth);
+            d += 1;
         }
-        assert_eq!(num_entries, total_entries);
         table
     }
 
@@ -87,7 +114,7 @@ impl PruningTable {
         sym: &Symmetries,
     ) {
         let (i, j) = EOLR::unpack_sym_coord(eolr);
-        for k in eolr_coord.internal_sym(i, sym) {
+        for &k in eolr_coord.internal_sym(i) {
             let s = sym.prod(j, sym.inv(k));
             let next_co = self.sym_table.coord_sym_inv(co, s);
             let idx = i as u32 * CO::RAW_SIZE as u32 + next_co as u32;
@@ -95,10 +122,11 @@ impl PruningTable {
                 self.set(idx, d % 3);
                 to_visit.insert((i, next_co));
                 *num_entries += 1;
-                if *num_entries % 1000 == 0 {
+                if *num_entries % 1_000_000 == 0 {
                     let num_entries = *num_entries / 1_000_000;
                     let total_entries = total_entries / 1_000_000;
                     print!("\rdepth {}: {num_entries}M / {total_entries}M", d);
+                    let _ = std::io::stdout().lock().flush();
                 }
             }
         }

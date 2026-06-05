@@ -1,5 +1,11 @@
-use rubik_lib::{algebra::{move_table::{RawCoordMoveTable, SymCoordMoveTable}, sym::Symmetries, sym_coord::SymCoordTable}, solve::kociemba};
-
+use rubik_lib::{
+    algebra::{
+        move_table::{RawCoordMoveTable, SymCoordMoveTable},
+        sym::Symmetries,
+        sym_coord::SymCoordTable,
+    },
+    solve::kociemba,
+};
 
 fn main() {
     let sym = Symmetries::sub16();
