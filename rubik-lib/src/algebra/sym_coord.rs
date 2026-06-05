@@ -21,7 +21,7 @@ use crate::{
 /// index of the equivalence class.
 pub struct SymCoordTable<C: Coord> {
     raw_to_repr: HashMap<C::Raw, C::Sym>,
-    pub repr_to_raw: Vec<C::Raw>,
+    repr_to_raw: Vec<C::Raw>,
 }
 
 impl<C: Coord> SymCoordTable<C> {
@@ -50,6 +50,15 @@ impl<C: Coord> SymCoordTable<C> {
             raw_to_repr,
             repr_to_raw,
         }
+    }
+
+    pub fn internal_sym(&self, coord: C::Sym, sym: &Symmetries) -> impl Iterator<Item = u8> {
+        let raw = self.repr_to_raw[C::sym_to_usize(coord)];
+        let s = C::from_repr(raw).sample_state();
+        (0..sym.size()).filter(move |&i| {
+            let new_s = sym.conj(s, i);
+            C::from_state(&new_s).repr() == raw
+        })
     }
 
     pub fn sym_coord(&self, state: State, sym: &Symmetries) -> C::Raw {
