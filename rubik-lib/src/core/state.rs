@@ -251,25 +251,24 @@ impl std::ops::Mul for State {
     type Output = State;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        let mut corners = self.corners & (1 << 63);
-        corners ^= rhs.corners & (1 << 63);
+        let mut corners = (self.corners & (1 << 63)) ^ (rhs.corners & (1 << 63));
         for i in 0..8 {
-            let pos = self.cp(i);
-            let perm = bits::get(rhs.corners, 5 * pos, 5) as u8;
+            let pos = rhs.cp(i);
+            let perm = bits::get(self.corners, 5 * pos, 5) as u8;
             corners |= (perm as u64) << (5 * i);
         }
-        if self.mirrored() {
+        if rhs.mirrored() {
             bits::bitwise_inv_mod_3(&mut corners);
         }
-        bits::bitwise_add_mod_3(&mut corners, self.corners);
+        bits::bitwise_add_mod_3(&mut corners, rhs.corners);
 
         let mut edges = 0;
         for i in 0..12 {
-            let pos = self.ep(i);
-            let perm = bits::get(rhs.edges, 5 * pos, 5) as u8;
+            let pos = rhs.ep(i);
+            let perm = bits::get(self.edges, 5 * pos, 5) as u8;
             edges |= (perm as u64) << (5 * i);
         }
-        bits::bitwise_add_mod_2(&mut edges, self.edges);
+        bits::bitwise_add_mod_2(&mut edges, rhs.edges);
         State { corners, edges }
     }
 }

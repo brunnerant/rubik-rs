@@ -192,12 +192,12 @@ mod tests {
 
     #[test]
     fn rot_lbd() {
-        check_conj(Move::U, Move::F, ROT_LBD);
-        check_conj(Move::F, Move::R, ROT_LBD);
-        check_conj(Move::R, Move::U, ROT_LBD);
-        check_conj(Move::L, Move::D, ROT_LBD);
-        check_conj(Move::B, Move::L, ROT_LBD);
-        check_conj(Move::D, Move::B, ROT_LBD);
+        check_conj(Move::F, Move::U, ROT_LBD);
+        check_conj(Move::R, Move::F, ROT_LBD);
+        check_conj(Move::U, Move::R, ROT_LBD);
+        check_conj(Move::D, Move::L, ROT_LBD);
+        check_conj(Move::L, Move::B, ROT_LBD);
+        check_conj(Move::B, Move::D, ROT_LBD);
         check_order(ROT_LBD, 3);
     }
 
@@ -205,10 +205,10 @@ mod tests {
     fn rot_l() {
         check_conj(Move::L, Move::L, ROT_L);
         check_conj(Move::R, Move::R, ROT_L);
-        check_conj(Move::U, Move::F, ROT_L);
-        check_conj(Move::F, Move::D, ROT_L);
-        check_conj(Move::D, Move::B, ROT_L);
-        check_conj(Move::B, Move::U, ROT_L);
+        check_conj(Move::F, Move::U, ROT_L);
+        check_conj(Move::D, Move::F, ROT_L);
+        check_conj(Move::B, Move::D, ROT_L);
+        check_conj(Move::U, Move::B, ROT_L);
         check_order(ROT_L, 4);
     }
 

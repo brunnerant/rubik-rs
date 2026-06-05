@@ -160,7 +160,7 @@ impl Trie {
 
 #[derive(Clone)]
 pub struct TriePtr {
-    rhs: State,                 // the left multiplier for the sorted order
+    lhs: State,                 // the left multiplier for the sorted order
     stack: SmallVec<[u64; 13]>, // 13 is chosen so that size_of::<TriePtr>() == 128
 }
 
@@ -183,10 +183,10 @@ impl TriePtr {
             edges |= (i as u64) << (5 * pos + 1);
             edges |= ori << (5 * i);
         }
-        let rhs = State { corners, edges };
+        let lhs = State { corners, edges };
 
         TriePtr {
-            rhs,
+            lhs,
             stack: smallvec![0],
         }
     }
@@ -205,10 +205,10 @@ impl TriePtr {
                 *self.stack.last_mut().unwrap() += 1 << 60;
                 let parent_i = bits::get(branch, 54, 4) as u8;
                 let j = match (d < 2 * 8, d.is_multiple_of(2)) {
-                    (true, true) => bits::get(self.rhs.corners, 5 * i + 2, 3) as u8,
-                    (true, false) => (i + bits::get(self.rhs.corners, 5 * parent_i, 2) as u8) % 3,
-                    (false, true) => bits::get(self.rhs.edges, 5 * i + 1, 4) as u8,
-                    (false, false) => (i + bits::get(self.rhs.edges, 5 * parent_i, 1) as u8) % 2,
+                    (true, true) => bits::get(self.lhs.corners, 5 * i + 2, 3) as u8,
+                    (true, false) => (i + bits::get(self.lhs.corners, 5 * parent_i, 2) as u8) % 3,
+                    (false, true) => bits::get(self.lhs.edges, 5 * i + 1, 4) as u8,
+                    (false, false) => (i + bits::get(self.lhs.edges, 5 * parent_i, 1) as u8) % 2,
                 };
 
                 // Push the child on the stack if it exists
@@ -294,17 +294,17 @@ mod tests {
     fn trie_lhs_mul_ordering() {
         let mut trie = TrieBuilder::new();
         let mut states: Vec<_> = states_to_depth(2);
-        let rhs = State::U * State::F2;
+        let lhs = State::U * State::F2;
         for state in states.iter_mut() {
             trie.insert(*state);
-            *state = *state * rhs;
+            *state = lhs * *state;
         }
         let trie = trie.build();
         states.sort();
         assert_eq!(
             states,
-            trie.ordered_by_left_mul(rhs)
-                .map(|s| s * rhs)
+            trie.ordered_by_left_mul(lhs)
+                .map(|s| lhs * s)
                 .collect::<Vec<_>>()
         );
     }
