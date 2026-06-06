@@ -1,19 +1,21 @@
 use std::{
     fs::File,
     io::{BufWriter, Write},
+    path::Path,
 };
 
 use rubik_lib::solve::kociemba::phase1;
 
 fn main() {
-    std::fs::create_dir_all("data").expect("failed to create data folder");
-    let coords = phase1::Coords::build();
+    let coords = phase1::Coords::from_folder(Path::new("data/kociemba/phase1"))
+        .expect("failed to load coords");
     let pruning_table = phase1::PruningTable::build(&coords);
-    let mut writer =
-        BufWriter::new(File::create("data/phase1-pruning.bin").expect("couldn't open file"));
-    print!("Writing the pruning table to 'data/phase1-pruning.bin'...");
+    let mut writer = BufWriter::new(
+        File::create("data/kociemba/phase1/pruning.bin").expect("couldn't open file"),
+    );
+    print!("Writing the pruning table to 'data/kociemba/phase1/pruning.bin'...");
     writer
-        .write_all(pruning_table.buffer())
+        .write_all(&pruning_table.serialize())
         .expect("failed to write to file");
     println!(" Done.");
 }

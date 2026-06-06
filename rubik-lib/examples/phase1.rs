@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::{BufReader, Read},
+    path::Path,
 };
 
 use itertools::join;
@@ -47,14 +48,16 @@ fn check_phase1(mut state: State, moves: &Vec<Move>, coords: &phase1::Coords) {
 }
 
 fn main() {
-    let mut buf_reader =
-        BufReader::new(File::open("data/phase1-pruning.bin").expect("unable to open file"));
+    let mut buf_reader = BufReader::new(
+        File::open("data/kociemba/phase1/pruning.bin").expect("unable to open pruning table"),
+    );
     let mut buffer = Vec::new();
     buf_reader
         .read_to_end(&mut buffer)
         .expect("unable to read file");
-    let pruning_table = phase1::PruningTable::from_buffer(buffer);
-    let coords = phase1::Coords::build();
+    let pruning_table = phase1::PruningTable::deserialize(&buffer).unwrap();
+    let coords = phase1::Coords::from_folder(Path::new("data/kociemba/phase1"))
+        .expect("failed to load coords");
 
     for _ in 0..100 {
         let (_, state) = scramble(100);

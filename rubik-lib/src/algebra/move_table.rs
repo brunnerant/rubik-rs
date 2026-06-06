@@ -1,6 +1,11 @@
+use num::traits::FromBytes;
+
 use crate::{
     algebra::{coord::Coord, sym::Symmetries, sym_coord::SymCoordTable},
-    core::state::State,
+    core::{
+        bits::{deserialize_array, serialize_array},
+        state::State,
+    },
 };
 
 pub struct RawCoordMoveTable<C: Coord> {
@@ -22,6 +27,18 @@ impl<C: Coord> RawCoordMoveTable<C> {
 
     pub fn coord_mv(&self, coord: C::Raw, mv: u8) -> C::Raw {
         self.move_table[18 * C::raw_to_usize(coord) + mv as usize]
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        serialize_array(&self.move_table)
+    }
+
+    pub fn deserialize(buffer: &[u8]) -> Option<Self>
+    where
+        for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
+    {
+        let move_table = deserialize_array(buffer);
+        (move_table.len() == C::raw_to_usize(C::RAW_SIZE) * 18).then_some(Self { move_table })
     }
 }
 
@@ -46,6 +63,18 @@ impl<C: Coord> SymCoordMoveTable<C> {
         let mv2 = sym.conj_inv_mv(mv, j);
         let (k, l) = C::unpack_sym_coord(self.move_table[18 * C::sym_to_usize(i) + mv2 as usize]);
         C::pack_sym_coord(k, sym.prod(l, j))
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        serialize_array(&self.move_table)
+    }
+
+    pub fn deserialize(buffer: &[u8]) -> Option<Self>
+    where
+        for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
+    {
+        let move_table = deserialize_array(buffer);
+        (move_table.len() == C::sym_to_usize(C::SYM_SIZE) * 18).then_some(Self { move_table })
     }
 }
 
@@ -73,6 +102,22 @@ impl<C: Coord> RawCoordSymTable<C> {
 
     pub fn coord_sym(&self, coord: C::Raw, s: u8) -> C::Raw {
         self.sym_table[C::raw_to_usize(coord) * self.sym_size + s as usize]
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        serialize_array(&self.sym_table)
+    }
+
+    pub fn deserialize(buffer: &[u8]) -> Option<Self>
+    where
+        for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
+    {
+        let sym_table = deserialize_array(buffer);
+        let sym_size = sym_table.len() / C::raw_to_usize(C::RAW_SIZE);
+        Some(Self {
+            sym_table,
+            sym_size,
+        })
     }
 }
 

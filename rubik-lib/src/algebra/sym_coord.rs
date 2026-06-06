@@ -104,7 +104,15 @@ impl<C: Coord> SymCoordTable<C> {
         self.repr_to_raw.len()
     }
 
-    pub fn deserialize(buffer: Vec<u8>) -> Self
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        buffer.extend_from_slice(&serialize_array(&self.repr_to_raw));
+        buffer.extend_from_slice(&serialize_array(&self.repr_to_symmetries));
+        buffer.extend_from_slice(&self.symmetries);
+        buffer
+    }
+
+    pub fn deserialize(buffer: &[u8]) -> Option<Self>
     where
         for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
         for<'a> &'a [u8]: TryInto<&'a <C::Sym as FromBytes>::Bytes>,
@@ -119,19 +127,12 @@ impl<C: Coord> SymCoordTable<C> {
         for (i, &raw) in repr_to_raw.iter().enumerate() {
             raw_to_repr.insert(raw, C::usize_to_sym(i));
         }
-        Self {
+        Some(Self {
             raw_to_repr,
             repr_to_raw,
             repr_to_symmetries,
             symmetries: symmetries.to_vec(),
-        }
-    }
-
-    pub fn serialize(&self) -> Vec<u8> {
-        let mut buffer = Vec::new();
-        buffer.append(&mut serialize_array(&self.repr_to_raw));
-        buffer.append(&mut serialize_array(&self.repr_to_symmetries));
-        buffer
+        })
     }
 }
 
