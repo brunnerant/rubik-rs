@@ -1,14 +1,22 @@
-//! A coordinate is a way to look at a subset of the full cube state.
-//! For example, the orientation of the corners define a coordinate.
-//! In terms of group theory, coordinates of the cube group G are defined
-//! by cosets of a subgroup H. Elements in the same cosets have the same
-//! coordinate.
-
 use num::{Zero, iter::Range, range};
 use std::fmt::Debug;
 
 use crate::core::{bits::Int, state::State};
 
+mod ori;
+mod perm;
+mod slice;
+
+pub use ori::CO;
+pub use ori::EO;
+pub use slice::EOLR;
+pub use slice::LR;
+
+/// A coordinate is a way to look at a subset of the full cube state.
+/// For example, the orientation of the corners define a coordinate.
+/// In terms of group theory, coordinates of the cube group G are defined
+/// by cosets of a subgroup H. Elements in the same cosets have the same
+/// coordinate.
 pub trait Coord: Eq + Copy + Debug {
     /// The smallest bitfield that can contain this raw coordinate.
     type Raw: Int;
@@ -64,205 +72,6 @@ pub trait Coord: Eq + Copy + Debug {
     }
     fn all_sym_coords() -> Range<Self::Sym> {
         range(Zero::zero(), Self::SYM_SIZE)
-    }
-}
-
-/// Corner orientation coordinate
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct CO {
-    coord: u16,
-}
-
-impl Coord for CO {
-    type Raw = u16;
-    type Sym = u8;
-    const RAW_SIZE: Self::Raw = 2187; // 3^7
-    const SYM_SIZE: Self::Sym = 168;
-
-    fn from_state(state: &State) -> Self {
-        let mut coord = 0;
-        for i in (0..7).rev() {
-            coord = coord * 3 + state.co(i) as u16;
-        }
-        Self { coord }
-    }
-
-    fn from_repr(repr: Self::Raw) -> Self {
-        Self { coord: repr }
-    }
-
-    fn repr(&self) -> Self::Raw {
-        self.coord
-    }
-
-    fn sample_state(&self) -> State {
-        let mut coord = self.coord;
-        let mut corners = State::ID.corners;
-        let mut last_ori = 0;
-        for i in 0..7 {
-            let ori = coord % 3;
-            corners |= (ori as u64) << (5 * i);
-            last_ori += ori;
-            coord /= 3;
-        }
-        corners |= (((300 - last_ori) % 3) as u64) << 35;
-        State {
-            corners,
-            edges: State::ID.edges,
-        }
-    }
-}
-
-/// Edge orientation coordinate
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct EO {
-    coord: u16,
-}
-
-impl Coord for EO {
-    type Raw = u16;
-    type Sym = u8;
-    const RAW_SIZE: Self::Raw = 2048; // 2^11
-    const SYM_SIZE: Self::Sym = 186;
-
-    fn from_state(state: &State) -> Self {
-        let mut coord = 0;
-        for i in 0..11 {
-            coord |= (state.eo(i) as u16) << i;
-        }
-        Self { coord }
-    }
-
-    fn from_repr(repr: Self::Raw) -> Self {
-        Self { coord: repr }
-    }
-
-    fn repr(&self) -> Self::Raw {
-        self.coord
-    }
-
-    fn sample_state(&self) -> State {
-        let mut edges = State::ID.edges;
-        let mut last_ori = 0;
-        for i in 0..11 {
-            let ori = (self.coord >> i) & 1;
-            edges |= (ori as u64) << (5 * i);
-            last_ori ^= ori;
-        }
-        edges |= (last_ori as u64) << 55;
-        State {
-            corners: State::ID.corners,
-            edges,
-        }
-    }
-}
-
-// LR slice edges coordinate
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct LR {
-    coord: u16,
-}
-
-impl LR {
-    const BINOM: [u16; 12 * 5] = [
-        0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 2, 1, 0, 0, 1, 3, 3, 1, 0, 1, 4, 6, 4, 0, 1, 5, 10, 10,
-        0, 1, 6, 15, 20, 0, 1, 7, 21, 35, 0, 1, 8, 28, 56, 0, 1, 9, 36, 84, 0, 1, 10, 45, 120, 0,
-        1, 11, 55, 165,
-    ];
-}
-
-impl Coord for LR {
-    type Raw = u16;
-    type Sym = u8;
-    const RAW_SIZE: Self::Raw = 495; // 12 choose 4
-    const SYM_SIZE: Self::Sym = 45;
-
-    fn from_state(state: &State) -> Self {
-        let mut k = 4;
-        let mut coord = 0;
-        for i in 0..12 {
-            if state.ep(i) < 4 {
-                k -= 1;
-            } else {
-                coord += Self::BINOM[5 * (11 - i as usize) + k];
-            }
-        }
-        Self { coord }
-    }
-
-    fn from_repr(repr: Self::Raw) -> Self {
-        Self { coord: repr }
-    }
-
-    fn repr(&self) -> Self::Raw {
-        self.coord
-    }
-
-    fn sample_state(&self) -> State {
-        let mut k = 4;
-        let mut coord = self.coord;
-        let mut perm = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-        let mut even = true;
-        let mut pos = [0; 4];
-        for i in 0..12 {
-            let binom = Self::BINOM[5 * (11 - i) + k];
-            if coord >= binom {
-                perm.swap(i, i + k);
-                even ^= binom > 0;
-                coord -= binom;
-            } else {
-                pos[4 - k] = i;
-                k -= 1;
-            }
-        }
-        if !even {
-            perm.swap(pos[0], pos[1]);
-        }
-
-        let mut edges = 0;
-        for (i, j) in perm.into_iter().enumerate() {
-            edges |= (j as u64) << (5 * i + 1);
-        }
-
-        State {
-            corners: State::ID.corners,
-            edges,
-        }
-    }
-}
-
-/// Combined EO + LR coordinates
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct EOLR {
-    coord: u32,
-}
-
-impl Coord for EOLR {
-    type Raw = u32;
-    type Sym = u16;
-    const RAW_SIZE: Self::Raw = EO::RAW_SIZE as u32 * LR::RAW_SIZE as u32;
-    const SYM_SIZE: Self::Sym = 64430;
-
-    fn from_state(state: &State) -> Self {
-        let eo = EO::from_state(state);
-        let lr = LR::from_state(state);
-        Self {
-            coord: (eo.repr() as u32) * (LR::RAW_SIZE as u32) + lr.repr() as u32,
-        }
-    }
-
-    fn from_repr(repr: Self::Raw) -> Self {
-        Self { coord: repr }
-    }
-
-    fn repr(&self) -> Self::Raw {
-        self.coord
-    }
-
-    fn sample_state(&self) -> State {
-        let eo = EO::from_repr((self.coord / (LR::RAW_SIZE as u32)) as u16);
-        let lr = LR::from_repr((self.coord % (LR::RAW_SIZE as u32)) as u16);
-        lr.sample_state() * eo.sample_state()
     }
 }
 
