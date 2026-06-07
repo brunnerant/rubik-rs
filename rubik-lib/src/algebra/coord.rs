@@ -9,6 +9,7 @@ mod slice;
 
 pub use ori::CO;
 pub use ori::EO;
+pub use perm::CP;
 pub use slice::EOLR;
 pub use slice::LR;
 
@@ -84,7 +85,7 @@ mod tests {
 
     use crate::{
         algebra::{
-            coord::{CO, Coord, EO, EOLR, LR},
+            coord::{CO, CP, Coord, EO, EOLR, LR},
             sym::Symmetries,
         },
         core::{moves::Move, state::State},
@@ -116,6 +117,9 @@ mod tests {
 
         test::<CO>();
         test::<EO>();
+
+        test::<CP>();
+
         test::<LR>();
         test::<EOLR>();
     }
