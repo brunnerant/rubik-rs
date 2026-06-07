@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::{algebra::coord::Coord, core::state::State};
 
 /// Corner orientation coordinate
@@ -36,66 +34,58 @@ impl Coord for CP {
     }
 
     fn sample_state(&self) -> State {
-        let perm = perm(self.coord);
-
-        let mut corners = 0;
-        for (i, p) in perm.into_iter().enumerate() {
-            corners |= (p as u64) << (5 * i + 2);
+        let mut n = self.coord;
+        let mut digits = [0; 7];
+        for i in 0..7 {
+            let k = i + 2;
+            digits[6 - i as usize] = n % k;
+            n /= k;
         }
-
-        let a = (self.coord / 24) % 2 == 0;
-        let b = (self.coord.div_ceil(2)) % 2 == 0;
-        let c = (self.coord / 720) % 2 == 0;
-        let even = a ^ b ^ c;
+        let mut avail = [0, 1, 2, 3, 4, 5, 6, 7];
+        let mut corners = 0;
+        let mut even = true;
+        for (i, d) in digits.into_iter().enumerate() {
+            let pos = d as usize;
+            corners |= avail[pos] << (5 * i + 2);
+            for j in pos..7 - i {
+                avail[j] = avail[j + 1];
+            }
+            even ^= !(7 - i - pos).is_multiple_of(2);
+        }
+        corners |= avail[0] << 37;
         let edges = if even {
             State::ID.edges
         } else {
             0b_10110_10100_10010_10000_01110_01100_01010_01000_00110_00100_00000_00010
         };
-
         State { corners, edges }
     }
 }
 
-fn perm(mut n: u16) -> [u8; 8] {
-    let mut digits = [0; 7];
-    for i in 0..7 {
-        let k = i + 2;
-        digits[6 - i as usize] = n % k;
-        n /= k;
-    }
-    let mut taken = HashSet::new();
-    let mut perm = [0; 8];
-    for i in 0..7 {
-        let mut digit = digits[i];
-        let mut result = 0;
-        loop {
-            if !taken.contains(&result) {
-                if digit == 0 {
-                    break;
-                }
-                digit -= 1;
-            }
-            result += 1;
-        }
-        perm[i] = result;
-        taken.insert(result);
-    }
-
-    assert_eq!(7, taken.len());
-    for i in 0..8 {
-        if !taken.contains(&i) {
-            perm[7] = i;
-            break;
-        }
-    }
-    perm
-}
-
 #[cfg(test)]
 mod tests {
+    fn perm(mut n: u16) -> ([u8; 8], bool) {
+        let mut digits = [0; 7];
+        for i in 0..7 {
+            let k = i + 2;
+            digits[6 - i as usize] = n % k;
+            n /= k;
+        }
 
-    use crate::algebra::coord::perm::perm;
+        let mut avail = [0, 1, 2, 3, 4, 5, 6, 7];
+        let mut perm = [0; 8];
+        let mut even = true;
+        for i in 0..7 {
+            let pos = digits[i] as usize;
+            perm[i] = avail[pos];
+            for j in pos..7 - i {
+                avail[j] = avail[j + 1];
+            }
+            even ^= !(7 - i - pos).is_multiple_of(2);
+        }
+        perm[7] = avail[0];
+        (perm, even)
+    }
 
     fn even(mut perm: [u8; 8]) -> bool {
         let mut even = true;
@@ -115,7 +105,9 @@ mod tests {
             let a = (i / 24) % 2 == 0;
             let b = ((i + 1) / 2) % 2 == 0;
             let c = (i / 720) % 2 == 0;
-            assert_eq!(a ^ b ^ c, even(perm(i)), "{i}");
+            let (p, e) = perm(i);
+            assert_eq!(a ^ b ^ c, even(p), "{i}");
+            assert_eq!(even(p), e);
         }
     }
 }
