@@ -9,6 +9,8 @@ use std::{
     path::Path,
 };
 
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
 use crate::algebra::{
     coord::{CO, Coord, EOLR},
     move_table::{RawCoordMoveTable, RawCoordSymTable, SymCoordMoveTable},
@@ -136,9 +138,6 @@ struct PruningTableBuilder<'a> {
     table: Vec<u8>,
     total_entries: usize,
     num_entries: usize,
-    new_at_depth: usize,
-    to_visit: HashSet<(EOLRSym, CORaw)>,
-    depth: u8,
     coords: &'a Coords,
 }
 
@@ -150,36 +149,35 @@ impl<'a> PruningTableBuilder<'a> {
             table,
             total_entries,
             num_entries: 0,
-            new_at_depth: 0,
-            to_visit: HashSet::new(),
-            depth: 0,
             coords,
         }
     }
 
     fn build(mut self) -> PruningTable {
-        self.insert(0, 0); // add the initial state
+        let mut new_entries: HashSet<_> = self.insert(0, 0).collect(); // add the initial state
+        let mut depth = 0;
         loop {
-            println!(
-                "\rdepth {} done. {} new entries.",
-                self.depth, self.new_at_depth
-            );
-            self.new_at_depth = 0;
-            self.depth += 1;
-            if self.num_entries == self.total_entries {
+            if self.fill_new_entries(&new_entries, depth) {
                 break;
             }
+            depth += 1;
 
-            let mut visit_now = HashSet::new();
-            std::mem::swap(&mut visit_now, &mut self.to_visit);
-            for (eolr, co) in visit_now.drain() {
-                let eolr = EOLR::pack_sym_coord(eolr, 0);
-                for mv in 0..18 {
-                    let next_eolr = self.coords.eolr_mv.coord_mv(eolr, mv, &self.coords.sym);
-                    let next_co = self.coords.co_mv.coord_mv(co, mv);
-                    self.insert(next_eolr, next_co);
-                }
-            }
+            let builder = &self;
+            new_entries = new_entries
+                .into_par_iter()
+                .flat_map_iter(|(eolr, co)| {
+                    let eolr = EOLR::pack_sym_coord(eolr, 0);
+                    (0..18).flat_map(move |mv| {
+                        let next_eolr =
+                            builder
+                                .coords
+                                .eolr_mv
+                                .coord_mv(eolr, mv, &builder.coords.sym);
+                        let next_co = builder.coords.co_mv.coord_mv(co, mv);
+                        builder.insert(next_eolr, next_co)
+                    })
+                })
+                .collect();
         }
         PruningTable { table: self.table }
     }
@@ -197,26 +195,29 @@ impl<'a> PruningTableBuilder<'a> {
         self.table[byte_idx] |= (val & 0b11) << bit_idx;
     }
 
-    fn insert(&mut self, eolr: EOLRRaw, co: CORaw) {
+    fn insert(&self, eolr: EOLRRaw, co: CORaw) -> impl Iterator<Item = (EOLRSym, CORaw)> {
         let (i, j) = EOLR::unpack_sym_coord(eolr);
-        for &k in self.coords.eolr_coord.internal_sym(i) {
-            let s = self.coords.sym.prod(self.coords.sym.inv(j), k);
-            let next_co = self.coords.co_sym.coord_sym(co, s);
-            let idx = i as u32 * CO::RAW_SIZE as u32 + next_co as u32;
-            if self.get(idx) == 0b11 {
-                self.set(idx, self.depth % 3);
-                self.to_visit.insert((i, next_co));
-                self.new_at_depth += 1;
-                self.num_entries += 1;
-                if self.num_entries % 1_000_000 == 0 {
-                    print!(
-                        "\r{}M / {}M",
-                        self.num_entries / 1_000_000,
-                        self.total_entries / 1_000_000
-                    );
-                    let _ = std::io::stdout().lock().flush();
-                }
-            }
+        self.coords
+            .eolr_coord
+            .internal_sym(i)
+            .iter()
+            .filter_map(move |&k| {
+                let s = self.coords.sym.prod(self.coords.sym.inv(j), k);
+                let next_co = self.coords.co_sym.coord_sym(co, s);
+                let idx = i as u32 * CO::RAW_SIZE as u32 + next_co as u32;
+                (self.get(idx) == 0b11).then_some((i, next_co))
+            })
+    }
+
+    fn fill_new_entries(&mut self, new_entries: &HashSet<(EOLRSym, CORaw)>, d: u8) -> bool {
+        println!("\rdepth {d} done. {} new entries.", new_entries.len());
+        let _ = std::io::stdout().lock().flush();
+        let d = d % 3;
+        for &(eolr, co) in new_entries {
+            let idx = eolr as u32 * CO::RAW_SIZE as u32 + co as u32;
+            self.set(idx, d);
+            self.num_entries += 1;
         }
+        self.num_entries == self.total_entries
     }
 }
