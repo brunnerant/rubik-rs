@@ -10,6 +10,7 @@ mod slice;
 pub use ori::CO;
 pub use ori::EO;
 pub use perm::CP;
+pub use perm::EP4;
 pub use perm::EP8;
 pub use slice::EOLR;
 pub use slice::LR;
@@ -85,7 +86,7 @@ mod tests {
 
     use crate::{
         algebra::{
-            coord::{CO, CP, Coord, EO, EOLR, EP8, LR},
+            coord::{CO, CP, Coord, EO, EOLR, EP4, EP8, LR},
             sym::Symmetries,
         },
         core::{moves::Move, state::State},
@@ -116,14 +117,22 @@ mod tests {
         }
 
         const PHASE2_MOVES: [Move; 10] = [
-            Move::L, Move::L_, Move::L2,
-            Move::R, Move::R_, Move::R2,
-            Move::D2, Move::U2, Move::B2, Move::F2,
+            Move::L,
+            Move::L_,
+            Move::L2,
+            Move::R,
+            Move::R_,
+            Move::R2,
+            Move::D2,
+            Move::U2,
+            Move::B2,
+            Move::F2,
         ];
         test::<CO>(&Move::BASIC_MOVES);
         test::<EO>(&Move::BASIC_MOVES);
         test::<CP>(&Move::BASIC_MOVES);
         test::<EP8>(&PHASE2_MOVES);
+        test::<EP4>(&PHASE2_MOVES);
         test::<LR>(&Move::BASIC_MOVES);
         test::<EOLR>(&Move::BASIC_MOVES);
     }
