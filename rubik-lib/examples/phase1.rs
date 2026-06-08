@@ -1,4 +1,3 @@
-use std::path::Path;
 
 use itertools::join;
 use rubik_lib::{
@@ -46,8 +45,7 @@ fn check_phase1(mut state: State, moves: &Vec<Move>, coords: &kociemba::Coords) 
 fn main() {
     let pruning_table =
         PruningTable::from_file("data/kociemba/phase1-pruning.bin").expect("unable to read file");
-    let coords =
-        kociemba::Coords::from_folder(Path::new("data/kociemba")).expect("failed to load coords");
+    let coords = kociemba::Coords::from_folder("data/kociemba").expect("failed to load coords");
 
     for _ in 0..100 {
         let (_, state) = scramble(100);
