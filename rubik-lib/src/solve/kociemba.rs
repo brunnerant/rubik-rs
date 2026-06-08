@@ -1,14 +1,17 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter, Read, Write},
+    io::{BufReader, Read},
     path::Path,
 };
 
-use crate::algebra::{
-    coord::{CO, EOLR},
-    move_table::{RawCoordMoveTable, RawCoordSymTable, SymCoordMoveTable},
-    sym::Symmetries,
-    sym_coord::SymCoordTable,
+use crate::{
+    algebra::{
+        coord::{CO, EOLR},
+        move_table::{RawCoordMoveTable, RawCoordSymTable, SymCoordMoveTable},
+        sym::Symmetries,
+        sym_coord::SymCoordTable,
+    },
+    core::io::BinarySerde,
 };
 
 pub mod phase1;
@@ -36,44 +39,18 @@ impl Coords {
 
     pub fn to_folder(&self, folder: impl AsRef<Path>) -> std::io::Result<()> {
         let folder = folder.as_ref();
-        Self::buffer_to_file(
-            &folder.join("eolr-sym-coord.bin"),
-            &self.eolr_coord.serialize(),
-        )?;
-        Self::buffer_to_file(
-            &folder.join("eolr-sym-coord-mv.bin"),
-            &self.eolr_mv.serialize(),
-        )?;
-        Self::buffer_to_file(&folder.join("co-raw-coord-mv.bin"), &self.co_mv.serialize())?;
-        Self::buffer_to_file(
-            &folder.join("co-raw-coord-sym.bin"),
-            &self.co_sym.serialize(),
-        )
-    }
-
-    fn buffer_to_file(file: &Path, buffer: &[u8]) -> std::io::Result<()> {
-        let mut writer = BufWriter::new(File::create(file)?);
-        writer.write_all(buffer)
+        self.eolr_coord.to_file(folder.join("eolr-sym-coord.bin"))?;
+        self.eolr_mv.to_file(folder.join("eolr-sym-coord-mv.bin"))?;
+        self.co_mv.to_file(folder.join("co-raw-coord-mv.bin"))?;
+        self.co_sym.to_file(folder.join("co-raw-coord-sym.bin"))
     }
 
     pub fn from_folder(folder: impl AsRef<Path>) -> std::io::Result<Self> {
         let folder = folder.as_ref();
-        let eolr_coord = SymCoordTable::deserialize(&Self::buffer_from_file(
-            &folder.join("eolr-sym-coord.bin"),
-        )?)
-        .ok_or(std::io::ErrorKind::InvalidData)?;
-        let eolr_mv = SymCoordMoveTable::deserialize(&Self::buffer_from_file(
-            &folder.join("eolr-sym-coord-mv.bin"),
-        )?)
-        .ok_or(std::io::ErrorKind::InvalidData)?;
-        let co_mv = RawCoordMoveTable::deserialize(&Self::buffer_from_file(
-            &folder.join("co-raw-coord-mv.bin"),
-        )?)
-        .ok_or(std::io::ErrorKind::InvalidData)?;
-        let co_sym = RawCoordSymTable::deserialize(&Self::buffer_from_file(
-            &folder.join("co-raw-coord-sym.bin"),
-        )?)
-        .ok_or(std::io::ErrorKind::InvalidData)?;
+        let eolr_coord = BinarySerde::from_file(folder.join("eolr-sym-coord.bin"))?;
+        let eolr_mv = BinarySerde::from_file(folder.join("eolr-sym-coord-mv.bin"))?;
+        let co_mv = BinarySerde::from_file(folder.join("co-raw-coord-mv.bin"))?;
+        let co_sym = BinarySerde::from_file(folder.join("co-raw-coord-sym.bin"))?;
         let sym = Symmetries::sub16();
 
         Ok(Self {

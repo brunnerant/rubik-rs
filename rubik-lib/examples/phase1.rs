@@ -1,13 +1,9 @@
-use std::{
-    fs::File,
-    io::{BufReader, Read},
-    path::Path,
-};
+use std::path::Path;
 
 use itertools::join;
 use rubik_lib::{
     algebra::coord::{CO, Coord, EOLR},
-    core::{moves::Move, scramble::scramble, state::State},
+    core::{io::BinarySerde, moves::Move, scramble::scramble, state::State},
     solve::kociemba::{self, phase1},
 };
 
@@ -48,14 +44,8 @@ fn check_phase1(mut state: State, moves: &Vec<Move>, coords: &kociemba::Coords) 
 }
 
 fn main() {
-    let mut buf_reader = BufReader::new(
-        File::open("data/kociemba/phase1-pruning.bin").expect("unable to open pruning table"),
-    );
-    let mut buffer = Vec::new();
-    buf_reader
-        .read_to_end(&mut buffer)
+    let pruning_table = phase1::PruningTable::from_file("data/kociemba/phase1-pruning.bin")
         .expect("unable to read file");
-    let pruning_table = phase1::PruningTable::deserialize(&buffer).unwrap();
     let coords =
         kociemba::Coords::from_folder(Path::new("data/kociemba")).expect("failed to load coords");
 

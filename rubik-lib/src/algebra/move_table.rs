@@ -4,6 +4,7 @@ use crate::{
     algebra::{coord::Coord, sym::Symmetries, sym_coord::SymCoordTable},
     core::{
         bits::{deserialize_array, serialize_array},
+        io::BinarySerde,
         state::State,
     },
 };
@@ -28,15 +29,17 @@ impl<C: Coord> RawCoordMoveTable<C> {
     pub fn coord_mv(&self, coord: C::Raw, mv: u8) -> C::Raw {
         self.move_table[18 * C::raw_to_usize(coord) + mv as usize]
     }
+}
 
-    pub fn serialize(&self) -> Vec<u8> {
+impl<C: Coord> BinarySerde for RawCoordMoveTable<C>
+where
+    for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
+{
+    fn to_binary(&self) -> Vec<u8> {
         serialize_array(&self.move_table)
     }
 
-    pub fn deserialize(buffer: &[u8]) -> Option<Self>
-    where
-        for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
-    {
+    fn from_binary(buffer: &[u8]) -> Option<Self> {
         let move_table = deserialize_array(buffer);
         (move_table.len() == C::raw_to_usize(C::RAW_SIZE) * 18).then_some(Self { move_table })
     }
@@ -64,15 +67,17 @@ impl<C: Coord> SymCoordMoveTable<C> {
         let (k, l) = C::unpack_sym_coord(self.move_table[18 * C::sym_to_usize(i) + mv2 as usize]);
         C::pack_sym_coord(k, sym.prod(l, j))
     }
+}
 
-    pub fn serialize(&self) -> Vec<u8> {
+impl<C: Coord> BinarySerde for SymCoordMoveTable<C>
+where
+    for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
+{
+    fn to_binary(&self) -> Vec<u8> {
         serialize_array(&self.move_table)
     }
 
-    pub fn deserialize(buffer: &[u8]) -> Option<Self>
-    where
-        for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
-    {
+    fn from_binary(buffer: &[u8]) -> Option<Self> {
         let move_table = deserialize_array(buffer);
         (move_table.len() == C::sym_to_usize(C::SYM_SIZE) * 18).then_some(Self { move_table })
     }
@@ -103,15 +108,17 @@ impl<C: Coord> RawCoordSymTable<C> {
     pub fn coord_sym(&self, coord: C::Raw, s: u8) -> C::Raw {
         self.sym_table[C::raw_to_usize(coord) * self.sym_size + s as usize]
     }
+}
 
-    pub fn serialize(&self) -> Vec<u8> {
+impl<C: Coord> BinarySerde for RawCoordSymTable<C>
+where
+    for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
+{
+    fn to_binary(&self) -> Vec<u8> {
         serialize_array(&self.sym_table)
     }
 
-    pub fn deserialize(buffer: &[u8]) -> Option<Self>
-    where
-        for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
-    {
+    fn from_binary(buffer: &[u8]) -> Option<Self> {
         let sym_table = deserialize_array(buffer);
         let sym_size = sym_table.len() / C::raw_to_usize(C::RAW_SIZE);
         Some(Self {

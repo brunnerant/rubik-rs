@@ -7,6 +7,7 @@ use crate::{
     algebra::{coord::Coord, sym::Symmetries},
     core::{
         bits::{deserialize_array, serialize_array},
+        io::BinarySerde,
         state::State,
     },
 };
@@ -103,8 +104,14 @@ impl<C: Coord> SymCoordTable<C> {
     pub fn size(&self) -> usize {
         self.repr_to_raw.len()
     }
+}
 
-    pub fn serialize(&self) -> Vec<u8> {
+impl<C: Coord> BinarySerde for SymCoordTable<C>
+where
+    for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
+    for<'a> &'a [u8]: TryInto<&'a <C::Sym as FromBytes>::Bytes>,
+{
+    fn to_binary(&self) -> Vec<u8> {
         let mut buffer = Vec::new();
         buffer.extend_from_slice(&serialize_array(&self.repr_to_raw));
         buffer.extend_from_slice(&serialize_array(&self.repr_to_symmetries));
@@ -112,11 +119,7 @@ impl<C: Coord> SymCoordTable<C> {
         buffer
     }
 
-    pub fn deserialize(buffer: &[u8]) -> Option<Self>
-    where
-        for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
-        for<'a> &'a [u8]: TryInto<&'a <C::Sym as FromBytes>::Bytes>,
-    {
+    fn from_binary(buffer: &[u8]) -> Option<Self> {
         let (repr_to_raw, buffer) =
             buffer.split_at(C::sym_to_usize(C::SYM_SIZE) * size_of::<C::Raw>());
         let repr_to_raw = deserialize_array::<C::Raw>(repr_to_raw);

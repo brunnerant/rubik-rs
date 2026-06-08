@@ -8,6 +8,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     algebra::coord::{CO, Coord, EOLR},
+    core::io::BinarySerde,
     solve::kociemba::Coords,
 };
 
@@ -37,14 +38,16 @@ impl PruningTable {
         let bit_idx = (idx & 0b11) << 1;
         (self.table[byte_idx] >> bit_idx) & 0b11
     }
+}
 
-    pub fn deserialize(buffer: &[u8]) -> Option<Self> {
+impl BinarySerde for PruningTable {
+    fn from_binary(buffer: &[u8]) -> Option<Self> {
         Some(Self {
             table: buffer.to_vec(),
         })
     }
 
-    pub fn serialize(&self) -> Vec<u8> {
+    fn to_binary(&self) -> Vec<u8> {
         self.table.clone()
     }
 }
