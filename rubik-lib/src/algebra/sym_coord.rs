@@ -157,7 +157,7 @@ mod tests {
 
     use crate::{
         algebra::{
-            coord::{CO, Coord, EOLR, LR},
+            coord::{CO, CP, Coord, EOLR, LR},
             sym::Symmetries,
             sym_coord::SymCoordTable,
         },
@@ -179,6 +179,10 @@ mod tests {
         // test::<EO>(&sym); The EO coord is not compatible with those symmetries.
         test::<LR>(&sym);
         test::<EOLR>(&sym);
+
+        test::<CP>(&sym);
+        // test::<EP8>(&sym);
+        // test::<EP4>(&sym);
     }
 
     #[test]
@@ -200,5 +204,9 @@ mod tests {
         test::<CO>(&sym);
         test::<LR>(&sym);
         test::<EOLR>(&sym);
+
+        test::<CP>(&sym);
+        // test::<EP8>(&sym);
+        // test::<EP4>(&sym);
     }
 }

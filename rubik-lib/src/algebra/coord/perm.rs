@@ -16,7 +16,7 @@ impl Coord for CP {
     type Raw = u16;
     type Sym = u16;
     const RAW_SIZE: Self::Raw = 40320; // 8!
-    const SYM_SIZE: Self::Sym = 40320;
+    const SYM_SIZE: Self::Sym = 2768;
 
     fn from_state(state: &State) -> Self {
         Self {
@@ -54,7 +54,7 @@ impl Coord for EP8 {
     type Raw = u16;
     type Sym = u16;
     const RAW_SIZE: Self::Raw = 40320; // 8!
-    const SYM_SIZE: Self::Sym = 40320;
+    const SYM_SIZE: Self::Sym = 2768;
 
     fn from_state(state: &State) -> Self {
         let edges = (state.edges >> 21) - 0b_00100_00100_00100_00100_00100_00100_00100_00100;
