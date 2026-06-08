@@ -35,12 +35,13 @@ pub struct PruningTable<C1: Coord, C2: Coord> {
 impl<C1: Coord, C2: Coord> PruningTable<C1, C2> {
     pub fn build(
         sym: &Symmetries,
+        mvs: &[u8],
         c1_coord: &SymCoordTable<C1>,
         c1_mv: &SymCoordMoveTable<C1>,
         c2_mv: &RawCoordMoveTable<C2>,
         c2_sym: &RawCoordSymTable<C2>,
     ) -> Self {
-        PruningTableBuilder::new(sym, c1_coord, c1_mv, c2_mv, c2_sym).build()
+        PruningTableBuilder::new(sym, mvs, c1_coord, c1_mv, c2_mv, c2_sym).build()
     }
 
     pub fn dist(
@@ -78,6 +79,7 @@ struct PruningTableBuilder<'a, C1: Coord, C2: Coord> {
     total_entries: usize,
     num_entries: usize,
     sym: &'a Symmetries,
+    mvs: &'a [u8],
     c1_coord: &'a SymCoordTable<C1>,
     c1_mv: &'a SymCoordMoveTable<C1>,
     c2_mv: &'a RawCoordMoveTable<C2>,
@@ -87,6 +89,7 @@ struct PruningTableBuilder<'a, C1: Coord, C2: Coord> {
 impl<'a, C1: Coord, C2: Coord> PruningTableBuilder<'a, C1, C2> {
     fn new(
         sym: &'a Symmetries,
+        mvs: &'a [u8],
         c1_coord: &'a SymCoordTable<C1>,
         c1_mv: &'a SymCoordMoveTable<C1>,
         c2_mv: &'a RawCoordMoveTable<C2>,
@@ -99,6 +102,7 @@ impl<'a, C1: Coord, C2: Coord> PruningTableBuilder<'a, C1, C2> {
             total_entries,
             num_entries: 0,
             sym,
+            mvs,
             c1_coord,
             c1_mv,
             c2_mv,
@@ -120,7 +124,7 @@ impl<'a, C1: Coord, C2: Coord> PruningTableBuilder<'a, C1, C2> {
                 .into_par_iter()
                 .flat_map_iter(|(c1, c2)| {
                     let c1 = C1::pack_sym_coord(c1, 0);
-                    (0..18).flat_map(move |mv| {
+                    builder.mvs.iter().flat_map(move |&mv| {
                         let next_c1 = builder.c1_mv.coord_mv(c1, mv, builder.sym);
                         let next_c2 = builder.c2_mv.coord_mv(c2, mv);
                         builder.insert(next_c1, next_c2)
