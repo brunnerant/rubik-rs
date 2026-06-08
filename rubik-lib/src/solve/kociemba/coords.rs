@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     algebra::{
-        coord::{CO, EOLR},
+        coord::{CO, CP, EOLR, EP8},
         move_table::{RawCoordMoveTable, RawCoordSymTable, SymCoordMoveTable},
         sym::Symmetries,
         sym_coord::SymCoordTable,
@@ -15,22 +15,36 @@ use crate::{
 };
 
 pub struct Coords {
+    // the 16 symmetries that reduce the state space
+    pub sym: Symmetries,
+
+    // phase 1 coordinates
     pub eolr_coord: SymCoordTable<EOLR>,
     pub eolr_mv: SymCoordMoveTable<EOLR>,
     pub co_mv: RawCoordMoveTable<CO>,
     pub co_sym: RawCoordSymTable<CO>,
-    pub sym: Symmetries,
+
+    // phase 2 coordinates
+    pub cp_coord: SymCoordTable<CP>,
+    pub cp_mv: SymCoordMoveTable<CP>,
+    pub ep8_mv: RawCoordMoveTable<EP8>,
+    pub ep8_sym: RawCoordSymTable<EP8>,
 }
 
 impl Coords {
     pub fn build() -> Coords {
         let sym = Symmetries::sub16();
         let eolr_coord = SymCoordTable::build(&sym);
+        let cp_coord = SymCoordTable::build(&sym);
         Self {
-            eolr_mv: SymCoordMoveTable::build(&eolr_coord, &sym),
+            eolr_mv: SymCoordMoveTable::build(&eolr_coord),
             eolr_coord,
             co_mv: RawCoordMoveTable::build(),
             co_sym: RawCoordSymTable::build(&sym),
+            cp_mv: SymCoordMoveTable::build(&cp_coord),
+            cp_coord,
+            ep8_mv: RawCoordMoveTable::build(),
+            ep8_sym: RawCoordSymTable::build(&sym),
             sym,
         }
     }
@@ -49,6 +63,10 @@ impl Coords {
         let eolr_mv = BinarySerde::from_file(folder.join("eolr-sym-coord-mv.bin"))?;
         let co_mv = BinarySerde::from_file(folder.join("co-raw-coord-mv.bin"))?;
         let co_sym = BinarySerde::from_file(folder.join("co-raw-coord-sym.bin"))?;
+        let cp_coord = BinarySerde::from_file(folder.join("cp-sym-coord.bin"))?;
+        let cp_mv = BinarySerde::from_file(folder.join("cp-sym-coord-mv.bin"))?;
+        let ep8_mv = BinarySerde::from_file(folder.join("ep8-raw-coord-mv.bin"))?;
+        let ep8_sym = BinarySerde::from_file(folder.join("ep8-raw-coord-sym.bin"))?;
         let sym = Symmetries::sub16();
 
         Ok(Self {
@@ -56,6 +74,10 @@ impl Coords {
             eolr_mv,
             co_mv,
             co_sym,
+            cp_coord,
+            cp_mv,
+            ep8_mv,
+            ep8_sym,
             sym,
         })
     }

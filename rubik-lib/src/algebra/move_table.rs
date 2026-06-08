@@ -50,12 +50,12 @@ pub struct SymCoordMoveTable<C: Coord> {
 }
 
 impl<C: Coord> SymCoordMoveTable<C> {
-    pub fn build(sym_coord: &SymCoordTable<C>, sym: &Symmetries) -> Self {
+    pub fn build(sym_coord: &SymCoordTable<C>) -> Self {
         let mut move_table = Vec::with_capacity(C::sym_to_usize(C::SYM_SIZE) * 18);
         for coord in C::all_sym_coords() {
             let s = sym_coord.repr(coord);
             for i in 0..18 {
-                move_table.push(sym_coord.sym_coord(s * State::BASIC_MOVES[i], sym));
+                move_table.push(sym_coord.sym_coord(s * State::BASIC_MOVES[i]));
             }
         }
         Self { move_table }
@@ -165,12 +165,12 @@ mod tests {
     fn sym_mv() {
         fn test<C: Coord>(sym: &Symmetries) {
             let sym_coord = SymCoordTable::<C>::build(sym);
-            let move_table = SymCoordMoveTable::build(&sym_coord, sym);
+            let move_table = SymCoordMoveTable::build(&sym_coord);
             for (_, s) in Moves::to_depth(3) {
-                let coord = sym_coord.sym_coord(s, sym);
+                let coord = sym_coord.sym_coord(s);
                 for i in 0..18 {
                     let actual = move_table.coord_mv(coord, i, sym);
-                    let expected = sym_coord.sym_coord(s * State::BASIC_MOVES[i as usize], sym);
+                    let expected = sym_coord.sym_coord(s * State::BASIC_MOVES[i as usize]);
 
                     // Here there is a tricky bit:
                     // It is possible that the two sym coords are different, but that they map to the same
