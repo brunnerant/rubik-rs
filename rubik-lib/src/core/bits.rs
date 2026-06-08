@@ -8,9 +8,9 @@ use num::{
     traits::{FromBytes, ToBytes},
 };
 
-pub trait Int: PrimInt + FromBytes + ToBytes + Hash + Debug + Display {}
+pub trait Int: PrimInt + FromBytes + ToBytes + Hash + Debug + Display + Send + Sync {}
 
-impl<T> Int for T where T: PrimInt + FromBytes + ToBytes + Hash + Debug + Display {}
+impl<T> Int for T where T: PrimInt + FromBytes + ToBytes + Hash + Debug + Display + Send + Sync {}
 
 pub fn get<T: Int>(bitfield: T, pos: u8, count: u8) -> T {
     let one = T::one();
