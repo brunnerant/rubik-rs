@@ -1,10 +1,8 @@
-use std::path::Path;
-
-use rubik_lib::solve::kociemba::phase1;
+use rubik_lib::solve::kociemba::{self};
 
 fn main() {
-    std::fs::create_dir_all("data/kociemba/phase1").expect("failed to create data folder");
-    phase1::Coords::build()
-        .to_folder(Path::new("data/kociemba/phase1"))
-        .expect("failed to save the coordinates to 'data/phase1'");
+    std::fs::create_dir_all("data/kociemba").expect("failed to create data folder");
+    kociemba::Coords::build()
+        .to_folder("data/kociemba")
+        .expect("failed to save the coordinates to 'data/kociemba'");
 }

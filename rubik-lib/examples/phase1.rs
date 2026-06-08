@@ -8,12 +8,12 @@ use itertools::join;
 use rubik_lib::{
     algebra::coord::{CO, Coord, EOLR},
     core::{moves::Move, scramble::scramble, state::State},
-    solve::kociemba::phase1,
+    solve::kociemba::{self, phase1},
 };
 
 fn solve_phase1(
     state: State,
-    coords: &phase1::Coords,
+    coords: &kociemba::Coords,
     pruning_table: &phase1::PruningTable,
 ) -> Vec<Move> {
     let mut moves = Vec::new();
@@ -37,7 +37,7 @@ fn solve_phase1(
     moves
 }
 
-fn check_phase1(mut state: State, moves: &Vec<Move>, coords: &phase1::Coords) {
+fn check_phase1(mut state: State, moves: &Vec<Move>, coords: &kociemba::Coords) {
     for &mv in moves {
         state = state * mv;
     }
@@ -49,15 +49,15 @@ fn check_phase1(mut state: State, moves: &Vec<Move>, coords: &phase1::Coords) {
 
 fn main() {
     let mut buf_reader = BufReader::new(
-        File::open("data/kociemba/phase1/pruning.bin").expect("unable to open pruning table"),
+        File::open("data/kociemba/phase1-pruning.bin").expect("unable to open pruning table"),
     );
     let mut buffer = Vec::new();
     buf_reader
         .read_to_end(&mut buffer)
         .expect("unable to read file");
     let pruning_table = phase1::PruningTable::deserialize(&buffer).unwrap();
-    let coords = phase1::Coords::from_folder(Path::new("data/kociemba/phase1"))
-        .expect("failed to load coords");
+    let coords =
+        kociemba::Coords::from_folder(Path::new("data/kociemba")).expect("failed to load coords");
 
     for _ in 0..100 {
         let (_, state) = scramble(100);
