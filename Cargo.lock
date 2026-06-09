@@ -297,6 +297,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "get_dir"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7be53a543a609b266f8ed4237af223fa96bdaa54d69fd6845c71a421a4a4748"
+
+[[package]]
 name = "getrandom"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -660,6 +666,7 @@ dependencies = [
  "rand",
  "rayon",
  "smallvec",
+ "workspace_root",
 ]
 
 [[package]]
@@ -1047,6 +1054,15 @@ dependencies = [
  "serde_json",
  "unicode-xid",
  "wasmparser",
+]
+
+[[package]]
+name = "workspace_root"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70d804157714956faa87af2ccf3ea2917a7e588c84c6e0a473311c1fca161818"
+dependencies = [
+ "get_dir",
 ]
 
 [[package]]
