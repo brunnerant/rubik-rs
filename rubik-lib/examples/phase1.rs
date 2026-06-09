@@ -1,37 +1,9 @@
 use itertools::join;
 use rubik_lib::{
     algebra::coord::{CO, Coord, EOLR},
-    core::{io::BinarySerde, moves::Move, scramble::scramble, state::State},
-    solve::kociemba::{self, pruning::PruningTable},
+    core::{moves::Move, scramble::scramble, state::State},
+    solve::kociemba::{self},
 };
-
-fn solve_phase1(
-    state: State,
-    coords: &kociemba::Coords,
-    pruning_table: &PruningTable<EOLR, CO>,
-) -> Vec<Move> {
-    let mut moves = Vec::new();
-    let mut eolr = coords
-        .eolr_coord
-        .raw_to_sym(EOLR::from_state(&state).coord());
-    let mut co = CO::from_state(&state).coord();
-    let mut next_d = (pruning_table.dist(eolr, co, &coords.sym, &coords.co_sym) + 2) % 3;
-    while EOLR::unpack_sym_coord(eolr).0 != 0 || co != 0 {
-        let (i, next_eolr, next_co) = (0..18)
-            .find_map(|i| {
-                let next_eolr = coords.eolr_mv.coord_mv(eolr, i, &coords.sym);
-                let next_co = coords.co_mv.coord_mv(co, i);
-                (pruning_table.dist(next_eolr, next_co, &coords.sym, &coords.co_sym) == next_d)
-                    .then_some((i, next_eolr, next_co))
-            })
-            .expect("invalid pruning table: no move was found that decreases the distance");
-        moves.push(Move::BASIC_MOVES[i as usize]);
-        eolr = next_eolr;
-        co = next_co;
-        next_d = (next_d + 2) % 3;
-    }
-    moves
-}
 
 fn check_phase1(mut state: State, moves: &Vec<Move>, coords: &kociemba::Coords) {
     for &mv in moves {
@@ -48,14 +20,29 @@ fn check_phase1(mut state: State, moves: &Vec<Move>, coords: &kociemba::Coords) 
 }
 
 fn main() {
-    let pruning_table =
-        PruningTable::from_file("data/kociemba/phase1-pruning.bin").expect("unable to read file");
-    let coords = kociemba::Coords::from_folder("data/kociemba").expect("failed to load coords");
+    let mut solver = kociemba::Solver::from_folder("data/kociemba").expect("failed to init solver");
+    let (mvs, state) = scramble(100);
+    println!("scramble: {}", join(mvs, " "));
+    solver.init(&state);
+    println!("generating phase 1 move sequences:");
 
-    for _ in 0..100 {
-        let (_, state) = scramble(100);
-        let moves = solve_phase1(state, &coords, &pruning_table);
-        check_phase1(state, &moves, &coords);
-        println!("{}", join(moves, " "));
+    let mut prev_l = 100;
+    let mut prev_n = 0;
+    loop {
+        let Some(mvs) = solver.phase1_step() else {
+            break;
+        };
+
+        // check_phase1(state, &mvs, &solver.coords);
+        if mvs.len() != prev_l {
+            prev_l = mvs.len();
+            if prev_n > 0 {
+                println!(" done {prev_n}");
+                prev_n = 0;
+            }
+            print!("length {prev_l}");
+        }
+        prev_n += 1;
+        // println!("{}", join(mvs, " "));
     }
 }
