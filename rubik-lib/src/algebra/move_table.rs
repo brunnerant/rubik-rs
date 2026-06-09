@@ -53,9 +53,11 @@ impl<C: Coord> SymCoordMoveTable<C> {
     pub fn build(sym_coord: &SymCoordTable<C>) -> Self {
         let mut move_table = Vec::with_capacity(C::sym_to_usize(C::SYM_SIZE) * 18);
         for coord in C::all_sym_coords() {
-            let s = sym_coord.repr(coord);
+            let repr = sym_coord.repr(coord);
+            let state = C::from_repr(repr).sample_state();
             for i in 0..18 {
-                move_table.push(sym_coord.sym_coord(s * State::BASIC_MOVES[i]));
+                let raw = C::from_state(&(state * State::BASIC_MOVES[i])).repr();
+                move_table.push(sym_coord.raw_to_sym(raw));
             }
         }
         Self { move_table }
@@ -166,19 +168,22 @@ mod tests {
         fn test<C: Coord>(sym: &Symmetries) {
             let sym_coord = SymCoordTable::<C>::build(sym);
             let move_table = SymCoordMoveTable::build(&sym_coord);
+            let sym_table = RawCoordSymTable::build(sym);
             for (_, s) in Moves::to_depth(3) {
-                let coord = sym_coord.sym_coord(s);
+                let raw = C::from_state(&s).repr();
+                let coord = sym_coord.raw_to_sym(raw);
                 for i in 0..18 {
                     let actual = move_table.coord_mv(coord, i, sym);
-                    let expected = sym_coord.sym_coord(s * State::BASIC_MOVES[i as usize]);
+                    let new_raw = C::from_state(&(s * State::BASIC_MOVES[i as usize])).repr();
+                    let expected = sym_coord.raw_to_sym(new_raw);
 
                     // Here there is a tricky bit:
                     // It is possible that the two sym coords are different, but that they map to the same
                     // raw coordinate. Therefore, we must compare the raw coordinates in order to test the move table.
                     // This can happen because two sym coords (i, j1) and (i, j2) map to the same raw coordinate due
                     // to internal symmetries of the corresponding raw coordinate.
-                    let actual_raw = sym_coord.raw_coord(actual, sym);
-                    let expected_raw = sym_coord.raw_coord(expected, sym);
+                    let actual_raw = sym_coord.sym_to_raw(actual, &sym_table);
+                    let expected_raw = sym_coord.sym_to_raw(expected, &sym_table);
                     assert_eq!(actual_raw, expected_raw);
                 }
             }

@@ -5,11 +5,10 @@ use num::traits::FromBytes;
 use smallvec::{SmallVec, smallvec};
 
 use crate::{
-    algebra::{coord::Coord, sym::Symmetries},
+    algebra::{coord::Coord, move_table::RawCoordSymTable, sym::Symmetries},
     core::{
         bits::{Int, deserialize_array, serialize_array},
         io::BinarySerde,
-        state::State,
     },
 };
 
@@ -83,27 +82,25 @@ impl<C: Coord> SymCoordTable<C> {
         }
     }
 
-    pub fn internal_sym(&self, coord: C::Sym) -> &[u8] {
-        let idx = C::sym_to_usize(self.repr_to_symmetries[C::sym_to_usize(coord)]);
+    pub fn internal_sym(&self, repr_idx: C::Sym) -> &[u8] {
+        let idx = C::sym_to_usize(self.repr_to_symmetries[C::sym_to_usize(repr_idx)]);
         let num_sym = self.symmetries[idx] as usize;
-        &self.symmetries[idx + 1..idx + num_sym + 1]
+        &self.symmetries[idx + 1..][..num_sym]
     }
 
-    pub fn sym_coord(&self, state: State) -> C::Raw {
-        let raw = C::raw_to_usize(C::from_state(&state).repr());
-        C::pack_sym_coord(self.raw_to_repr[raw], self.raw_to_sym[raw])
+    pub fn raw_to_sym(&self, raw_coord: C::Raw) -> C::Raw {
+        let idx = C::raw_to_usize(raw_coord);
+        C::pack_sym_coord(self.raw_to_repr[idx], self.raw_to_sym[idx])
     }
 
-    pub fn raw_coord(&self, sym_coord: C::Raw, sym: &Symmetries) -> C::Raw {
-        let (s, i) = C::unpack_sym_coord(sym_coord);
-        let raw = self.repr_to_raw[C::sym_to_usize(s)];
-        let s = sym.conj(C::from_repr(raw).sample_state(), i);
-        C::from_state(&s).repr()
+    pub fn sym_to_raw(&self, sym_coord: C::Raw, raw_sym: &RawCoordSymTable<C>) -> C::Raw {
+        let (repr_idx, s_idx) = C::unpack_sym_coord(sym_coord);
+        let raw = self.repr_to_raw[C::sym_to_usize(repr_idx)];
+        raw_sym.coord_sym(raw, s_idx)
     }
 
-    pub fn repr(&self, coord: C::Sym) -> State {
-        let raw = self.repr_to_raw[C::sym_to_usize(coord)];
-        C::from_repr(raw).sample_state()
+    pub fn repr(&self, repr_idx: C::Sym) -> C::Raw {
+        self.repr_to_raw[C::sym_to_usize(repr_idx)]
     }
 
     pub fn size(&self) -> usize {
@@ -158,6 +155,7 @@ mod tests {
     use crate::{
         algebra::{
             coord::{CO, CP, Coord, EOLR, LR},
+            move_table::RawCoordSymTable,
             sym::Symmetries,
             sym_coord::SymCoordTable,
         },
@@ -168,10 +166,11 @@ mod tests {
     fn sym_coords() {
         fn test<C: Coord>(sym: &Symmetries) {
             let table = SymCoordTable::<C>::build(sym);
+            let raw_sym = RawCoordSymTable::<C>::build(sym);
             for (_, s) in Moves::to_depth(3) {
                 let raw_coord = C::from_state(&s).repr();
-                let sym_coord = table.sym_coord(s);
-                assert_eq!(raw_coord, table.raw_coord(sym_coord, sym));
+                let sym_coord = table.raw_to_sym(raw_coord);
+                assert_eq!(raw_coord, table.sym_to_raw(sym_coord, &raw_sym));
             }
         }
         let sym = Symmetries::sub16();

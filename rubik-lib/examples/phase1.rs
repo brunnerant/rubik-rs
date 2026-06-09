@@ -1,4 +1,3 @@
-
 use itertools::join;
 use rubik_lib::{
     algebra::coord::{CO, Coord, EOLR},
@@ -12,7 +11,9 @@ fn solve_phase1(
     pruning_table: &PruningTable<EOLR, CO>,
 ) -> Vec<Move> {
     let mut moves = Vec::new();
-    let mut eolr = coords.eolr_coord.sym_coord(state);
+    let mut eolr = coords
+        .eolr_coord
+        .raw_to_sym(EOLR::from_state(&state).repr());
     let mut co = CO::from_state(&state).repr();
     let mut next_d = (pruning_table.dist(eolr, co, &coords.sym, &coords.co_sym) + 2) % 3;
     while EOLR::unpack_sym_coord(eolr).0 != 0 || co != 0 {
@@ -36,7 +37,11 @@ fn check_phase1(mut state: State, moves: &Vec<Move>, coords: &kociemba::Coords) 
     for &mv in moves {
         state = state * mv;
     }
-    let (_, j) = EOLR::unpack_sym_coord(coords.eolr_coord.sym_coord(state));
+    let (_, j) = EOLR::unpack_sym_coord(
+        coords
+            .eolr_coord
+            .raw_to_sym(EOLR::from_state(&state).repr()),
+    );
     state = coords.sym.conj_inv(state, j);
     assert_eq!(0, EOLR::from_state(&state).repr());
     assert_eq!(0, CO::from_state(&state).repr());
