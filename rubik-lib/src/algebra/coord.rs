@@ -23,58 +23,58 @@ pub use slice::LR;
 pub trait Coord: Eq + Copy + Debug {
     /// The smallest bitfield that can contain this raw coordinate.
     type Raw: Int;
-    /// The smallest bitfield that can contains this coordinate reduced by symmetry.
-    /// Note that this type should always be smaller or equal to the raw type.
-    type Sym: Int;
+    /// The smallest bitfield that can contains the index of a representative
+    /// of the raw coordinate reduced by symmetry.
+    type ReprIdx: Int;
 
     /// The number of different values that this coordinate supports.
-    const RAW_SIZE: Self::Raw;
+    const NUM_RAW: Self::Raw;
     /// The number of different values that this coordinate supports when reduced by symmetry.
-    const SYM_SIZE: Self::Sym;
+    const NUM_REPR: Self::ReprIdx;
 
     /// Builds a coordinate from a state
     fn from_state(state: &State) -> Self;
     /// Builds a coordinate from its raw representation
-    fn from_repr(repr: Self::Raw) -> Self;
+    fn from_coord(repr: Self::Raw) -> Self;
 
     /// Retrieves the representation of the coordinate
-    fn repr(&self) -> Self::Raw;
+    fn coord(&self) -> Self::Raw;
     /// Sample a state that has this coordinate (there might be several such states).
     fn sample_state(&self) -> State;
 
     // Helper methods to convert between the coordinate types
-    fn usize_to_sym(i: usize) -> Self::Sym {
-        unsafe { num::cast::<usize, Self::Sym>(i).unwrap_unchecked() }
+    fn usize_to_sym(i: usize) -> Self::ReprIdx {
+        unsafe { num::cast::<usize, Self::ReprIdx>(i).unwrap_unchecked() }
     }
-    fn sym_to_usize(i: Self::Sym) -> usize {
-        unsafe { num::cast::<Self::Sym, usize>(i).unwrap_unchecked() }
+    fn sym_to_usize(i: Self::ReprIdx) -> usize {
+        unsafe { num::cast::<Self::ReprIdx, usize>(i).unwrap_unchecked() }
     }
     fn raw_to_usize(i: Self::Raw) -> usize {
         unsafe { num::cast::<Self::Raw, usize>(i).unwrap_unchecked() }
     }
-    fn sym_to_raw(i: Self::Sym) -> Self::Raw {
-        unsafe { num::cast::<Self::Sym, Self::Raw>(i).unwrap_unchecked() }
+    fn sym_to_raw(i: Self::ReprIdx) -> Self::Raw {
+        unsafe { num::cast::<Self::ReprIdx, Self::Raw>(i).unwrap_unchecked() }
     }
     fn u8_to_raw(i: u8) -> Self::Raw {
         unsafe { num::cast::<u8, Self::Raw>(i).unwrap_unchecked() }
     }
 
-    fn pack_sym_coord(s: Self::Sym, i: u8) -> Self::Raw {
+    fn pack_sym_coord(s: Self::ReprIdx, i: u8) -> Self::Raw {
         Self::sym_to_raw(s) * Self::u8_to_raw(16) + Self::u8_to_raw(i)
     }
-    fn unpack_sym_coord(c: Self::Raw) -> (Self::Sym, u8) {
+    fn unpack_sym_coord(c: Self::Raw) -> (Self::ReprIdx, u8) {
         let _16 = Self::u8_to_raw(16);
-        let s = unsafe { num::cast::<Self::Raw, Self::Sym>(c / _16).unwrap_unchecked() };
+        let s = unsafe { num::cast::<Self::Raw, Self::ReprIdx>(c / _16).unwrap_unchecked() };
         let i = unsafe { num::cast::<Self::Raw, u8>(c % _16).unwrap_unchecked() };
         (s, i)
     }
 
     // Coordinate iteration helpers
-    fn all_raw_coords() -> Range<Self::Raw> {
-        range(Zero::zero(), Self::RAW_SIZE)
+    fn raw_coords() -> Range<Self::Raw> {
+        range(Zero::zero(), Self::NUM_RAW)
     }
-    fn all_sym_coords() -> Range<Self::Sym> {
-        range(Zero::zero(), Self::SYM_SIZE)
+    fn repr_indices() -> Range<Self::ReprIdx> {
+        range(Zero::zero(), Self::NUM_REPR)
     }
 }
 
@@ -96,9 +96,9 @@ mod tests {
     fn sample_repr() {
         fn test<C: Coord>(closure: &[Move]) {
             let mut states = HashSet::new();
-            for repr in C::all_raw_coords() {
-                let coord = C::from_repr(repr);
-                assert_eq!(coord.repr(), repr);
+            for repr in C::raw_coords() {
+                let coord = C::from_coord(repr);
+                assert_eq!(coord.coord(), repr);
                 let state = coord.sample_state();
                 assert!(state.valid(), "{:?} {:?}", coord, state);
                 assert_eq!(coord, C::from_state(&state), "{:?}", state);
@@ -107,12 +107,12 @@ mod tests {
                 // Check closure
                 for &mv in closure {
                     let next_coord = C::from_state(&(mv * state));
-                    assert!(next_coord.repr() < C::RAW_SIZE)
+                    assert!(next_coord.coord() < C::NUM_RAW)
                 }
             }
             assert_eq!(
                 states.len(),
-                num::cast::<C::Raw, usize>(C::RAW_SIZE).unwrap()
+                num::cast::<C::Raw, usize>(C::NUM_RAW).unwrap()
             );
         }
 

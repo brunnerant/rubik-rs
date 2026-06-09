@@ -14,9 +14,9 @@ pub struct CP {
 
 impl Coord for CP {
     type Raw = u16;
-    type Sym = u16;
-    const RAW_SIZE: Self::Raw = 40320; // 8!
-    const SYM_SIZE: Self::Sym = 2768;
+    type ReprIdx = u16;
+    const NUM_RAW: Self::Raw = 40320; // 8!
+    const NUM_REPR: Self::ReprIdx = 2768;
 
     fn from_state(state: &State) -> Self {
         Self {
@@ -24,11 +24,11 @@ impl Coord for CP {
         }
     }
 
-    fn from_repr(repr: Self::Raw) -> Self {
+    fn from_coord(repr: Self::Raw) -> Self {
         Self { coord: repr }
     }
 
-    fn repr(&self) -> Self::Raw {
+    fn coord(&self) -> Self::Raw {
         self.coord
     }
 
@@ -52,9 +52,9 @@ pub struct EP8 {
 
 impl Coord for EP8 {
     type Raw = u16;
-    type Sym = u16;
-    const RAW_SIZE: Self::Raw = 40320; // 8!
-    const SYM_SIZE: Self::Sym = 2768;
+    type ReprIdx = u16;
+    const NUM_RAW: Self::Raw = 40320; // 8!
+    const NUM_REPR: Self::ReprIdx = 2768;
 
     fn from_state(state: &State) -> Self {
         let edges = (state.edges >> 21) - 0b_00100_00100_00100_00100_00100_00100_00100_00100;
@@ -63,11 +63,11 @@ impl Coord for EP8 {
         }
     }
 
-    fn from_repr(repr: Self::Raw) -> Self {
+    fn from_coord(repr: Self::Raw) -> Self {
         Self { coord: repr }
     }
 
-    fn repr(&self) -> Self::Raw {
+    fn coord(&self) -> Self::Raw {
         self.coord
     }
 
@@ -95,9 +95,9 @@ pub struct EP4 {
 
 impl Coord for EP4 {
     type Raw = u8;
-    type Sym = u8;
-    const RAW_SIZE: Self::Raw = 24; // 4!
-    const SYM_SIZE: Self::Sym = 24;
+    type ReprIdx = u8;
+    const NUM_RAW: Self::Raw = 24; // 4!
+    const NUM_REPR: Self::ReprIdx = 24;
 
     fn from_state(state: &State) -> Self {
         Self {
@@ -105,11 +105,11 @@ impl Coord for EP4 {
         }
     }
 
-    fn from_repr(repr: Self::Raw) -> Self {
+    fn from_coord(repr: Self::Raw) -> Self {
         Self { coord: repr }
     }
 
-    fn repr(&self) -> Self::Raw {
+    fn coord(&self) -> Self::Raw {
         self.coord
     }
 

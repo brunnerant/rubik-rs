@@ -13,8 +13,8 @@ fn solve_phase1(
     let mut moves = Vec::new();
     let mut eolr = coords
         .eolr_coord
-        .raw_to_sym(EOLR::from_state(&state).repr());
-    let mut co = CO::from_state(&state).repr();
+        .raw_to_sym(EOLR::from_state(&state).coord());
+    let mut co = CO::from_state(&state).coord();
     let mut next_d = (pruning_table.dist(eolr, co, &coords.sym, &coords.co_sym) + 2) % 3;
     while EOLR::unpack_sym_coord(eolr).0 != 0 || co != 0 {
         let (i, next_eolr, next_co) = (0..18)
@@ -40,11 +40,11 @@ fn check_phase1(mut state: State, moves: &Vec<Move>, coords: &kociemba::Coords) 
     let (_, j) = EOLR::unpack_sym_coord(
         coords
             .eolr_coord
-            .raw_to_sym(EOLR::from_state(&state).repr()),
+            .raw_to_sym(EOLR::from_state(&state).coord()),
     );
     state = coords.sym.conj_inv(state, j);
-    assert_eq!(0, EOLR::from_state(&state).repr());
-    assert_eq!(0, CO::from_state(&state).repr());
+    assert_eq!(0, EOLR::from_state(&state).coord());
+    assert_eq!(0, CO::from_state(&state).coord());
 }
 
 fn main() {

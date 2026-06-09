@@ -20,27 +20,27 @@ use crate::{
 /// index of the equivalence class.
 pub struct SymCoordTable<C: Coord> {
     // bijective mapping coord(Raw) = coord(Sj^-1 * Repr_i * Sj)
-    raw_to_repr: Vec<C::Sym>, // retrieves i given Raw
-    raw_to_sym: Vec<u8>,      // retrives j given Raw
-    repr_to_raw: Vec<C::Raw>, // retrieves Raw given i (such that j = 0)
+    raw_to_repr: Vec<C::ReprIdx>, // retrieves i given Raw
+    raw_to_sym: Vec<u8>,          // retrives j given Raw
+    repr_to_raw: Vec<C::Raw>,     // retrieves Raw given i (such that j = 0)
 
     // internal symmetries
-    repr_to_symmetries: Vec<C::Sym>,
+    repr_to_symmetries: Vec<C::ReprIdx>,
     symmetries: Vec<u8>,
 }
 
 impl<C: Coord> SymCoordTable<C> {
     pub fn build(sym: &Symmetries) -> Self {
-        let mut raw_to_repr = vec![C::SYM_SIZE; C::raw_to_usize(C::RAW_SIZE)];
-        let mut raw_to_sym = vec![0; C::raw_to_usize(C::RAW_SIZE)];
+        let mut raw_to_repr = vec![C::NUM_REPR; C::raw_to_usize(C::NUM_RAW)];
+        let mut raw_to_sym = vec![0; C::raw_to_usize(C::NUM_RAW)];
         let mut repr_to_raw = Vec::new();
-        for c in C::all_raw_coords() {
-            if raw_to_repr[C::raw_to_usize(c)] != C::SYM_SIZE {
+        for c in C::raw_coords() {
+            if raw_to_repr[C::raw_to_usize(c)] != C::NUM_REPR {
                 continue;
             }
-            let s = C::from_repr(c).sample_state();
+            let s = C::from_coord(c).sample_state();
             let raw: Vec<_> = (0..sym.size())
-                .map(|i| C::from_state(&sym.conj(s, i)).repr())
+                .map(|i| C::from_state(&sym.conj(s, i)).coord())
                 .collect();
             let min = raw.iter().position_min().unwrap();
             let min_inv = sym.inv(min as u8);
@@ -53,16 +53,16 @@ impl<C: Coord> SymCoordTable<C> {
             }
             repr_to_raw.push(raw[min]);
         }
-        assert_eq!(repr_to_raw.len(), C::sym_to_usize(C::SYM_SIZE));
+        assert_eq!(repr_to_raw.len(), C::sym_to_usize(C::NUM_REPR));
 
         let mut symmetries = vec![];
-        let mut repr_to_symmetries = Vec::with_capacity(C::raw_to_usize(C::RAW_SIZE));
+        let mut repr_to_symmetries = Vec::with_capacity(C::raw_to_usize(C::NUM_RAW));
         let mut syms_to_idx = HashMap::new();
         for &coord in repr_to_raw.iter() {
-            let state = C::from_repr(coord).sample_state();
+            let state = C::from_coord(coord).sample_state();
             let mut syms: SmallVec<[_; 16]> = smallvec![];
             for i in 0..sym.size() {
-                if C::from_state(&sym.conj(state, i)).repr() == coord {
+                if C::from_state(&sym.conj(state, i)).coord() == coord {
                     syms.push(i);
                 }
             }
@@ -82,7 +82,7 @@ impl<C: Coord> SymCoordTable<C> {
         }
     }
 
-    pub fn internal_sym(&self, repr_idx: C::Sym) -> &[u8] {
+    pub fn internal_sym(&self, repr_idx: C::ReprIdx) -> &[u8] {
         let idx = C::sym_to_usize(self.repr_to_symmetries[C::sym_to_usize(repr_idx)]);
         let num_sym = self.symmetries[idx] as usize;
         &self.symmetries[idx + 1..][..num_sym]
@@ -99,7 +99,7 @@ impl<C: Coord> SymCoordTable<C> {
         raw_sym.coord_sym(raw, s_idx)
     }
 
-    pub fn repr(&self, repr_idx: C::Sym) -> C::Raw {
+    pub fn repr(&self, repr_idx: C::ReprIdx) -> C::Raw {
         self.repr_to_raw[C::sym_to_usize(repr_idx)]
     }
 
@@ -111,7 +111,7 @@ impl<C: Coord> SymCoordTable<C> {
 impl<C: Coord> BinarySerde for SymCoordTable<C>
 where
     for<'a> &'a [u8]: TryInto<&'a <C::Raw as FromBytes>::Bytes>,
-    for<'a> &'a [u8]: TryInto<&'a <C::Sym as FromBytes>::Bytes>,
+    for<'a> &'a [u8]: TryInto<&'a <C::ReprIdx as FromBytes>::Bytes>,
 {
     fn to_binary(&self) -> Vec<u8> {
         let mut buffer = Vec::new();
@@ -124,10 +124,10 @@ where
     }
 
     fn from_binary(mut buffer: &[u8]) -> Option<Self> {
-        let raw_to_repr = read_chunk(&mut buffer, C::raw_to_usize(C::RAW_SIZE));
-        let raw_to_sym = read_chunk(&mut buffer, C::raw_to_usize(C::RAW_SIZE));
-        let repr_to_raw = read_chunk(&mut buffer, C::sym_to_usize(C::SYM_SIZE));
-        let repr_to_symmetries = read_chunk(&mut buffer, C::sym_to_usize(C::SYM_SIZE));
+        let raw_to_repr = read_chunk(&mut buffer, C::raw_to_usize(C::NUM_RAW));
+        let raw_to_sym = read_chunk(&mut buffer, C::raw_to_usize(C::NUM_RAW));
+        let repr_to_raw = read_chunk(&mut buffer, C::sym_to_usize(C::NUM_REPR));
+        let repr_to_symmetries = read_chunk(&mut buffer, C::sym_to_usize(C::NUM_REPR));
         Some(Self {
             raw_to_repr,
             raw_to_sym,
@@ -168,7 +168,7 @@ mod tests {
             let table = SymCoordTable::<C>::build(sym);
             let raw_sym = RawCoordSymTable::<C>::build(sym);
             for (_, s) in Moves::to_depth(3) {
-                let raw_coord = C::from_state(&s).repr();
+                let raw_coord = C::from_state(&s).coord();
                 let sym_coord = table.raw_to_sym(raw_coord);
                 assert_eq!(raw_coord, table.sym_to_raw(sym_coord, &raw_sym));
             }
@@ -188,12 +188,12 @@ mod tests {
     fn internal_sym() {
         fn test<C: Coord>(sym: &Symmetries) {
             let table = SymCoordTable::<C>::build(sym);
-            for coord in C::all_sym_coords() {
+            for coord in C::repr_indices() {
                 let raw = table.repr_to_raw[C::sym_to_usize(coord)];
-                let state = C::from_repr(raw).sample_state();
+                let state = C::from_coord(raw).sample_state();
                 let internal: HashSet<_> = table.internal_sym(coord).iter().copied().collect();
                 for s in 0..sym.size() {
-                    let new_raw = C::from_state(&sym.conj(state, s)).repr();
+                    let new_raw = C::from_state(&sym.conj(state, s)).coord();
                     assert_eq!(new_raw == raw, internal.contains(&s));
                 }
             }

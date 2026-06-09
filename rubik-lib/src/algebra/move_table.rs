@@ -15,11 +15,11 @@ pub struct RawCoordMoveTable<C: Coord> {
 
 impl<C: Coord> RawCoordMoveTable<C> {
     pub fn build() -> Self {
-        let mut move_table = Vec::with_capacity(C::raw_to_usize(C::RAW_SIZE) * 18);
-        for coord in C::all_raw_coords() {
-            let s = C::from_repr(coord).sample_state();
+        let mut move_table = Vec::with_capacity(C::raw_to_usize(C::NUM_RAW) * 18);
+        for coord in C::raw_coords() {
+            let s = C::from_coord(coord).sample_state();
             for i in 0..18 {
-                let new_coord = C::from_state(&(s * State::BASIC_MOVES[i])).repr();
+                let new_coord = C::from_state(&(s * State::BASIC_MOVES[i])).coord();
                 move_table.push(new_coord);
             }
         }
@@ -41,7 +41,7 @@ where
 
     fn from_binary(buffer: &[u8]) -> Option<Self> {
         let move_table = deserialize_array(buffer);
-        (move_table.len() == C::raw_to_usize(C::RAW_SIZE) * 18).then_some(Self { move_table })
+        (move_table.len() == C::raw_to_usize(C::NUM_RAW) * 18).then_some(Self { move_table })
     }
 }
 
@@ -51,12 +51,12 @@ pub struct SymCoordMoveTable<C: Coord> {
 
 impl<C: Coord> SymCoordMoveTable<C> {
     pub fn build(sym_coord: &SymCoordTable<C>) -> Self {
-        let mut move_table = Vec::with_capacity(C::sym_to_usize(C::SYM_SIZE) * 18);
-        for coord in C::all_sym_coords() {
+        let mut move_table = Vec::with_capacity(C::sym_to_usize(C::NUM_REPR) * 18);
+        for coord in C::repr_indices() {
             let repr = sym_coord.repr(coord);
-            let state = C::from_repr(repr).sample_state();
+            let state = C::from_coord(repr).sample_state();
             for i in 0..18 {
-                let raw = C::from_state(&(state * State::BASIC_MOVES[i])).repr();
+                let raw = C::from_state(&(state * State::BASIC_MOVES[i])).coord();
                 move_table.push(sym_coord.raw_to_sym(raw));
             }
         }
@@ -81,7 +81,7 @@ where
 
     fn from_binary(buffer: &[u8]) -> Option<Self> {
         let move_table = deserialize_array(buffer);
-        (move_table.len() == C::sym_to_usize(C::SYM_SIZE) * 18).then_some(Self { move_table })
+        (move_table.len() == C::sym_to_usize(C::NUM_REPR) * 18).then_some(Self { move_table })
     }
 }
 
@@ -93,11 +93,11 @@ pub struct RawCoordSymTable<C: Coord> {
 impl<C: Coord> RawCoordSymTable<C> {
     pub fn build(sym: &Symmetries) -> Self {
         let sym_size = sym.size() as usize;
-        let mut sym_table = Vec::with_capacity(C::raw_to_usize(C::RAW_SIZE) * sym_size);
-        for coord in C::all_raw_coords() {
-            let s = C::from_repr(coord).sample_state();
+        let mut sym_table = Vec::with_capacity(C::raw_to_usize(C::NUM_RAW) * sym_size);
+        for coord in C::raw_coords() {
+            let s = C::from_coord(coord).sample_state();
             for i in 0..sym.size() {
-                let new_coord = C::from_state(&sym.conj(s, i)).repr();
+                let new_coord = C::from_state(&sym.conj(s, i)).coord();
                 sym_table.push(new_coord);
             }
         }
@@ -122,7 +122,7 @@ where
 
     fn from_binary(buffer: &[u8]) -> Option<Self> {
         let sym_table = deserialize_array(buffer);
-        let sym_size = sym_table.len() / C::raw_to_usize(C::RAW_SIZE);
+        let sym_size = sym_table.len() / C::raw_to_usize(C::NUM_RAW);
         Some(Self {
             sym_table,
             sym_size,
@@ -148,10 +148,10 @@ mod tests {
         fn test<C: Coord>() {
             let move_table = RawCoordMoveTable::<C>::build();
             for (_, s) in Moves::to_depth(3) {
-                let coord = C::from_state(&s).repr();
+                let coord = C::from_state(&s).coord();
                 for i in 0..18 {
                     let new_coord = move_table.coord_mv(coord, i);
-                    let expected = C::from_state(&(s * State::BASIC_MOVES[i as usize])).repr();
+                    let expected = C::from_state(&(s * State::BASIC_MOVES[i as usize])).coord();
                     assert_eq!(expected, new_coord);
                 }
             }
@@ -170,11 +170,11 @@ mod tests {
             let move_table = SymCoordMoveTable::build(&sym_coord);
             let sym_table = RawCoordSymTable::build(sym);
             for (_, s) in Moves::to_depth(3) {
-                let raw = C::from_state(&s).repr();
+                let raw = C::from_state(&s).coord();
                 let coord = sym_coord.raw_to_sym(raw);
                 for i in 0..18 {
                     let actual = move_table.coord_mv(coord, i, sym);
-                    let new_raw = C::from_state(&(s * State::BASIC_MOVES[i as usize])).repr();
+                    let new_raw = C::from_state(&(s * State::BASIC_MOVES[i as usize])).coord();
                     let expected = sym_coord.raw_to_sym(new_raw);
 
                     // Here there is a tricky bit:
@@ -200,10 +200,10 @@ mod tests {
         fn test<C: Coord>(sym: &Symmetries) {
             let sym_table = RawCoordSymTable::<C>::build(sym);
             for (_, s) in Moves::to_depth(3) {
-                let coord = C::from_state(&s).repr();
+                let coord = C::from_state(&s).coord();
                 for i in 0..sym.size() {
                     let new_s = sym.conj(s, i);
-                    let new_coord_expected = C::from_state(&new_s).repr();
+                    let new_coord_expected = C::from_state(&new_s).coord();
                     let new_coord_actual = sym_table.coord_sym(coord, i);
                     assert_eq!(new_coord_expected, new_coord_actual);
                 }

@@ -8,9 +8,9 @@ pub struct CO {
 
 impl Coord for CO {
     type Raw = u16;
-    type Sym = u8;
-    const RAW_SIZE: Self::Raw = 2187; // 3^7
-    const SYM_SIZE: Self::Sym = 168;
+    type ReprIdx = u8;
+    const NUM_RAW: Self::Raw = 2187; // 3^7
+    const NUM_REPR: Self::ReprIdx = 168;
 
     fn from_state(state: &State) -> Self {
         let mut coord = 0;
@@ -20,11 +20,11 @@ impl Coord for CO {
         Self { coord }
     }
 
-    fn from_repr(repr: Self::Raw) -> Self {
+    fn from_coord(repr: Self::Raw) -> Self {
         Self { coord: repr }
     }
 
-    fn repr(&self) -> Self::Raw {
+    fn coord(&self) -> Self::Raw {
         self.coord
     }
 
@@ -54,9 +54,9 @@ pub struct EO {
 
 impl Coord for EO {
     type Raw = u16;
-    type Sym = u8;
-    const RAW_SIZE: Self::Raw = 2048; // 2^11
-    const SYM_SIZE: Self::Sym = 186;
+    type ReprIdx = u8;
+    const NUM_RAW: Self::Raw = 2048; // 2^11
+    const NUM_REPR: Self::ReprIdx = 186;
 
     fn from_state(state: &State) -> Self {
         let mut coord = 0;
@@ -66,11 +66,11 @@ impl Coord for EO {
         Self { coord }
     }
 
-    fn from_repr(repr: Self::Raw) -> Self {
+    fn from_coord(repr: Self::Raw) -> Self {
         Self { coord: repr }
     }
 
-    fn repr(&self) -> Self::Raw {
+    fn coord(&self) -> Self::Raw {
         self.coord
     }
 

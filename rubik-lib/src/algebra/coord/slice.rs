@@ -19,9 +19,9 @@ impl LR {
 
 impl Coord for LR {
     type Raw = u16;
-    type Sym = u8;
-    const RAW_SIZE: Self::Raw = 495; // 12 choose 4
-    const SYM_SIZE: Self::Sym = 45;
+    type ReprIdx = u8;
+    const NUM_RAW: Self::Raw = 495; // 12 choose 4
+    const NUM_REPR: Self::ReprIdx = 45;
 
     fn from_state(state: &State) -> Self {
         let mut k = 4;
@@ -36,11 +36,11 @@ impl Coord for LR {
         Self { coord }
     }
 
-    fn from_repr(repr: Self::Raw) -> Self {
+    fn from_coord(repr: Self::Raw) -> Self {
         Self { coord: repr }
     }
 
-    fn repr(&self) -> Self::Raw {
+    fn coord(&self) -> Self::Raw {
         self.coord
     }
 
@@ -85,29 +85,29 @@ pub struct EOLR {
 
 impl Coord for EOLR {
     type Raw = u32;
-    type Sym = u16;
-    const RAW_SIZE: Self::Raw = EO::RAW_SIZE as u32 * LR::RAW_SIZE as u32;
-    const SYM_SIZE: Self::Sym = 64430;
+    type ReprIdx = u16;
+    const NUM_RAW: Self::Raw = EO::NUM_RAW as u32 * LR::NUM_RAW as u32;
+    const NUM_REPR: Self::ReprIdx = 64430;
 
     fn from_state(state: &State) -> Self {
         let eo = EO::from_state(state);
         let lr = LR::from_state(state);
         Self {
-            coord: (eo.repr() as u32) * (LR::RAW_SIZE as u32) + lr.repr() as u32,
+            coord: (eo.coord() as u32) * (LR::NUM_RAW as u32) + lr.coord() as u32,
         }
     }
 
-    fn from_repr(repr: Self::Raw) -> Self {
+    fn from_coord(repr: Self::Raw) -> Self {
         Self { coord: repr }
     }
 
-    fn repr(&self) -> Self::Raw {
+    fn coord(&self) -> Self::Raw {
         self.coord
     }
 
     fn sample_state(&self) -> State {
-        let eo = EO::from_repr((self.coord / (LR::RAW_SIZE as u32)) as u16);
-        let lr = LR::from_repr((self.coord % (LR::RAW_SIZE as u32)) as u16);
+        let eo = EO::from_coord((self.coord / (LR::NUM_RAW as u32)) as u16);
+        let lr = LR::from_coord((self.coord % (LR::NUM_RAW as u32)) as u16);
         lr.sample_state() * eo.sample_state()
     }
 }

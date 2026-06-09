@@ -53,7 +53,7 @@ impl<C1: Coord, C2: Coord> PruningTable<C1, C2> {
     ) -> u8 {
         let (i, j) = C1::unpack_sym_coord(c1);
         let k = c2_sym.coord_sym(c2, sym.inv(j));
-        let idx = C1::sym_to_usize(i) * C2::raw_to_usize(C2::RAW_SIZE) + C2::raw_to_usize(k);
+        let idx = C1::sym_to_usize(i) * C2::raw_to_usize(C2::NUM_RAW) + C2::raw_to_usize(k);
         let byte_idx = idx >> 2;
         let bit_idx = (idx & 0b11) << 1;
         (self.table[byte_idx] >> bit_idx) & 0b11
@@ -95,7 +95,7 @@ impl<'a, C1: Coord, C2: Coord> PruningTableBuilder<'a, C1, C2> {
         c2_mv: &'a RawCoordMoveTable<C2>,
         c2_sym: &'a RawCoordSymTable<C2>,
     ) -> Self {
-        let total_entries = C1::sym_to_usize(C1::SYM_SIZE) * C2::raw_to_usize(C2::RAW_SIZE);
+        let total_entries = C1::sym_to_usize(C1::NUM_REPR) * C2::raw_to_usize(C2::NUM_RAW);
         let table = vec![!0; total_entries.div_ceil(4)];
         PruningTableBuilder {
             table,
@@ -152,22 +152,22 @@ impl<'a, C1: Coord, C2: Coord> PruningTableBuilder<'a, C1, C2> {
         self.table[byte_idx] |= (val & 0b11) << bit_idx;
     }
 
-    fn insert(&self, c1: C1::Raw, c2: C2::Raw) -> impl Iterator<Item = (C1::Sym, C2::Raw)> {
+    fn insert(&self, c1: C1::Raw, c2: C2::Raw) -> impl Iterator<Item = (C1::ReprIdx, C2::Raw)> {
         let (i, j) = C1::unpack_sym_coord(c1);
         self.c1_coord.internal_sym(i).iter().filter_map(move |&k| {
             let s = self.sym.prod(self.sym.inv(j), k);
             let k = self.c2_sym.coord_sym(c2, s);
-            let idx = C1::sym_to_usize(i) * C2::raw_to_usize(C2::RAW_SIZE) + C2::raw_to_usize(k);
+            let idx = C1::sym_to_usize(i) * C2::raw_to_usize(C2::NUM_RAW) + C2::raw_to_usize(k);
             (self.get(idx) == 0b11).then_some((i, k))
         })
     }
 
-    fn fill_new_entries(&mut self, new_entries: &HashSet<(C1::Sym, C2::Raw)>, d: u8) -> bool {
+    fn fill_new_entries(&mut self, new_entries: &HashSet<(C1::ReprIdx, C2::Raw)>, d: u8) -> bool {
         println!("\rdepth {d} done. {} new entries.", new_entries.len());
         let _ = std::io::stdout().lock().flush();
         let d = d % 3;
         for &(c1, c2) in new_entries {
-            let idx = C1::sym_to_usize(c1) * C2::raw_to_usize(C2::RAW_SIZE) + C2::raw_to_usize(c2);
+            let idx = C1::sym_to_usize(c1) * C2::raw_to_usize(C2::NUM_RAW) + C2::raw_to_usize(c2);
             self.set(idx, d);
             self.num_entries += 1;
         }
