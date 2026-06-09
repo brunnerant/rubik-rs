@@ -94,13 +94,19 @@ impl Solver {
         while let Some(prev) = self.phase1.last_mut() {
             let mv = prev.next_mv;
             let dist = prev.dist;
+            let eolr = prev.eolr;
+            let co = prev.co;
+            prev.next_mv += 1;
             if mv < 18 {
-                prev.next_mv += 1;
-                let eolr = self
-                    .coords
-                    .eolr_mv
-                    .coord_mv(prev.eolr, mv, &self.coords.sym);
-                let co = self.coords.co_mv.coord_mv(prev.co, mv);
+                if self.phase1.len() > 1 {
+                    let prev_mv = self.phase1[self.phase1.len() - 2].next_mv - 1;
+                    if prune_move(prev_mv, mv) {
+                        continue;
+                    }
+                }
+
+                let eolr = self.coords.eolr_mv.coord_mv(eolr, mv, &self.coords.sym);
+                let co = self.coords.co_mv.coord_mv(co, mv);
                 let new_dist = self.phase1_dist(eolr, co, dist);
                 let rem_steps = self.phase1_target_len - self.phase1.len() as u8;
                 if new_dist > rem_steps {
@@ -159,6 +165,14 @@ fn phase1_min_len(
 
 fn is_phase2_move(mv: u8) -> bool {
     !(mv / 3 >= 2 && mv % 3 < 2)
+}
+
+fn prune_move(prev_mv: u8, mv: u8) -> bool {
+    let prev_face = prev_mv / 3;
+    let face = mv / 3;
+    let prev_axis = prev_mv / 6;
+    let axis = mv / 6;
+    prev_axis == axis && (prev_face + 1) != face
 }
 
 #[cfg(test)]
