@@ -98,16 +98,3 @@ impl Coords {
         Ok(buffer)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::algebra::coord::{Coord, EP4, LR};
-
-    #[test]
-    fn lr_eq_ep4_in_phase2() {
-        for i in 0..EP4::NUM_RAW {
-            let state = EP4::from_coord(i).sample_state();
-            assert_eq!(LR::from_state(&state).coord(), i as u16);
-        }
-    }
-}

@@ -24,6 +24,6 @@ fn main() {
             .map(|i| Move::BASIC_MOVES[i as usize])
             .collect();
         check_moves(state, &mvs);
-        println!("{}", join(mvs, " "));
+        println!("{}: {}", mvs.len(), join(mvs, " "));
     }
 }

@@ -13,7 +13,7 @@ use crate::{
 };
 
 #[derive(Default, Clone, Copy)]
-pub struct Phase1Record {
+struct Phase1Record {
     dist: u8,
     next_mv: u8,
     eolr: u32,
@@ -41,7 +41,7 @@ pub struct Solver {
     phase2_max_len: u8,
     phase1: SmallVec<[Phase1Record; 12]>,
     phase2: SmallVec<[Phase2Record; 18]>,
-    best: SmallVec<[u8; 31]>,
+    best: SmallVec<[u8; 30]>,
 }
 
 impl Solver {
@@ -62,13 +62,13 @@ impl Solver {
             phase2_max_len: 0,
             phase1: smallvec![],
             phase2: smallvec![],
-            best: smallvec![0; 31],
+            best: smallvec![0; 30],
         })
     }
 
     pub fn init(&mut self, state: &State) {
         self.phase1.clear();
-        self.best = smallvec![0; 31];
+        self.best = smallvec![0; 30];
         self.init = *state;
         self.init1.eolr = self
             .coords
@@ -84,7 +84,7 @@ impl Solver {
         self.phase1_target_len = self.init1.dist;
     }
 
-    pub fn phase1_step(&mut self) -> bool {
+    fn phase1_step(&mut self) -> bool {
         if self.phase1_target_len == 0
             && EOLR::unpack_sym_coord(self.init1.eolr).0 == 0
             && self.init1.co == 0
@@ -160,7 +160,7 @@ impl Solver {
         }
     }
 
-    pub fn phase2_step(&mut self) -> bool {
+    fn phase2_step(&mut self) -> bool {
         if self.phase2_target_len == 0
             && CP::unpack_sym_coord(self.init2.cp).0 == 0
             && self.init2.ep8 == 0
@@ -242,7 +242,7 @@ impl Solver {
         }
     }
 
-    pub fn init_phase2(&mut self) {
+    fn init_phase2(&mut self) {
         let mut state = self.init;
         for s in self.phase1.iter() {
             let mv = s.next_mv - 1;
@@ -267,11 +267,11 @@ impl Solver {
         self.phase2.clear();
     }
 
-    pub fn step(&mut self) -> Option<SmallVec<[u8; 31]>> {
+    pub fn step(&mut self) -> Option<SmallVec<[u8; 30]>> {
         while self.phase1_step() {
             self.init_phase2();
             if self.phase2_step() {
-                let mut moves = SmallVec::<[u8; 31]>::new();
+                let mut moves = SmallVec::<[u8; 30]>::new();
                 moves.extend(self.phase1.iter().map(|s| s.next_mv - 1));
                 moves.extend(self.phase2.iter().map(|s| s.next_mv - 1));
                 assert!(moves.len() <= self.best.len());
