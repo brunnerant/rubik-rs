@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     algebra::{
-        coord::{CO, CP, EOLR, EP8},
+        coord::{CO, CP, EOLR, EP4, EP8},
         move_table::{RawCoordMoveTable, RawCoordSymTable, SymCoordMoveTable},
         sym::Symmetries,
         sym_coord::SymCoordTable,
@@ -29,6 +29,7 @@ pub struct Coords {
     pub cp_mv: SymCoordMoveTable<CP>,
     pub ep8_mv: RawCoordMoveTable<EP8>,
     pub ep8_sym: RawCoordSymTable<EP8>,
+    pub ep4_mv: RawCoordMoveTable<EP4>,
 }
 
 impl Coords {
@@ -45,6 +46,7 @@ impl Coords {
             cp_coord,
             ep8_mv: RawCoordMoveTable::build(),
             ep8_sym: RawCoordSymTable::build(&sym),
+            ep4_mv: RawCoordMoveTable::build(),
             sym,
         }
     }
@@ -58,7 +60,8 @@ impl Coords {
         self.cp_coord.to_file(folder.join("cp-sym-coord.bin"))?;
         self.cp_mv.to_file(folder.join("cp-sym-coord-mv.bin"))?;
         self.ep8_mv.to_file(folder.join("ep8-raw-coord-mv.bin"))?;
-        self.ep8_sym.to_file(folder.join("ep8-raw-coord-sym.bin"))
+        self.ep8_sym.to_file(folder.join("ep8-raw-coord-sym.bin"))?;
+        self.ep4_mv.to_file(folder.join("ep4-raw-coord-mv.bin"))
     }
 
     pub fn from_folder(folder: impl AsRef<Path>) -> std::io::Result<Self> {
@@ -71,9 +74,11 @@ impl Coords {
         let cp_mv = BinarySerde::from_file(folder.join("cp-sym-coord-mv.bin"))?;
         let ep8_mv = BinarySerde::from_file(folder.join("ep8-raw-coord-mv.bin"))?;
         let ep8_sym = BinarySerde::from_file(folder.join("ep8-raw-coord-sym.bin"))?;
+        let ep4_mv = BinarySerde::from_file(folder.join("ep4-raw-coord-mv.bin"))?;
         let sym = Symmetries::sub16();
 
         Ok(Self {
+            sym,
             eolr_coord,
             eolr_mv,
             co_mv,
@@ -82,7 +87,7 @@ impl Coords {
             cp_mv,
             ep8_mv,
             ep8_sym,
-            sym,
+            ep4_mv,
         })
     }
 
@@ -91,5 +96,18 @@ impl Coords {
         let mut buffer = Vec::new();
         reader.read_to_end(&mut buffer)?;
         Ok(buffer)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::algebra::coord::{Coord, EP4, LR};
+
+    #[test]
+    fn lr_eq_ep4_in_phase2() {
+        for i in 0..EP4::NUM_RAW {
+            let state = EP4::from_coord(i).sample_state();
+            assert_eq!(LR::from_state(&state).coord(), i as u16);
+        }
     }
 }
