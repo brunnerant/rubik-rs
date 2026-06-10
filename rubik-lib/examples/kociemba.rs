@@ -16,18 +16,9 @@ fn check_sol(mut state: State, moves: &[u8]) {
 fn main() {
     let mut solver = kociemba::Solver::from_folder("data/kociemba").expect("failed to init solver");
     let n = 100;
-
-    let mut total_length = 0;
-    for _ in 0..n {
-        let (_, state) = scramble(100);
-        let sol = solver.solve_timeout(&state, Duration::from_millis(10));
-        check_sol(state, &sol);
-        total_length += sol.len();
-        let mvs: Vec<_> = sol
-            .into_iter()
-            .map(|i| Move::BASIC_MOVES[i as usize])
-            .collect();
-        println!("len {}: {}", mvs.len(), join(mvs, " "));
-    }
-    println!("avg len: {:.01}", total_length as f32 / n as f32)
+    let (mvs, state) = scramble(n);
+    println!("scramble ({} moves): {}", n, join(mvs, " "));
+    let sol = solver.solve_timeout(&state, Duration::from_millis(1000));
+    check_sol(state, &sol);
+    println!("solution ({} moves): {}", sol.len(), join(sol.iter().map(|&i| Move::BASIC_MOVES[i as usize]), " "));
 }
