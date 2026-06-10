@@ -63,10 +63,14 @@ impl<C: Coord> SymCoordMoveTable<C> {
         Self { move_table }
     }
 
+    pub fn repr_mv(&self, repr: C::ReprIdx, mv: u8) -> C::Raw {
+        self.move_table[18 * C::sym_to_usize(repr) + mv as usize]
+    }
+
     pub fn coord_mv(&self, coord: C::Raw, mv: u8, sym: &Symmetries) -> C::Raw {
         let (i, j) = C::unpack_sym_coord(coord);
         let mv2 = sym.conj_inv_mv(mv, j);
-        let (k, l) = C::unpack_sym_coord(self.move_table[18 * C::sym_to_usize(i) + mv2 as usize]);
+        let (k, l) = C::unpack_sym_coord(self.repr_mv(i, mv2));
         C::pack_sym_coord(k, sym.prod(l, j))
     }
 }

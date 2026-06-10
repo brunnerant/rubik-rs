@@ -10,9 +10,8 @@ pub use coords::Tables;
 use smallvec::{SmallVec, smallvec};
 
 use crate::{
-    algebra::coord::{CP, Coord},
     core::state::State,
-    solve::kociemba::coords::{Coords, PHASE2_MOVES, Phase1, Phase2, is_phase2_move},
+    solve::kociemba::coords::{PHASE2_MOVES, Phase1, Phase2, is_phase2_move},
 };
 
 #[derive(Clone, Copy)]
@@ -37,8 +36,8 @@ impl Iterator for Until {
 }
 
 #[derive(Default, Clone, Copy)]
-struct Record<C: Coords> {
-    coords: C,
+struct Record<Coords> {
+    coords: Coords,
     dist: u8,
     next_mv: u8,
 }
@@ -91,8 +90,8 @@ impl Solver {
         self.in_phase2 = false;
         self.best = smallvec![0; 30];
         self.init = *state;
-        self.phase1_init.coords = Coords::from_state(state, &self.tables);
-        self.phase1_init.dist = phase1_min_len(self.phase1_init.coords, &self.tables);
+        self.phase1_init.coords = Phase1::from_state(state, &self.tables);
+        self.phase1_init.dist = self.phase1_init.coords.depth(&self.tables);
         self.phase1_target_len = self.phase1_init.dist;
         self.phase1_zero_done = self.phase1_target_len > 0;
     }
@@ -135,7 +134,7 @@ impl Solver {
 
             // Compute the new distance
             let next_coords = coords.mv(mv, &self.tables);
-            let dist_mod_3 = next_coords.min_dist(&self.tables);
+            let dist_mod_3 = next_coords.depth_mod_3(&self.tables);
             let new_dist = update_dist(dist, dist_mod_3);
             let rem_steps = self.phase1_target_len - self.phase1.len() as u8;
 
@@ -207,7 +206,7 @@ impl Solver {
 
             // Compute the new distance
             let next_coords = coords.mv(mv, &self.tables);
-            let dist_mod_3 = next_coords.min_dist(&self.tables);
+            let dist_mod_3 = next_coords.depth_cp_ep8_mod_3(&self.tables);
             let new_dist = update_dist(dist, dist_mod_3);
             let rem_steps = self.phase2_target_len - self.phase2.len() as u8;
 
@@ -219,7 +218,7 @@ impl Solver {
             // Return the solution if we reached the target number of moves
             if self.phase2.len() as u8 == self.phase2_target_len {
                 // The other coordinates are zero, but we must check the ep4 coord
-                if next_coords.ep4 == 0 {
+                if next_coords.reached_goal() {
                     return Some(true);
                 } else {
                     return None;
@@ -246,9 +245,9 @@ impl Solver {
             state = state * State::BASIC_MOVES[mv as usize];
         }
 
-        self.phase2_init.coords = Coords::from_state(&state, &self.tables);
+        self.phase2_init.coords = Phase2::from_state(&state, &self.tables);
         self.phase2_init.next_mv = 0;
-        self.phase2_init.dist = phase2_min_len(self.phase2_init.coords, &self.tables);
+        self.phase2_init.dist = self.phase2_init.coords.depth_cp_ep8(&self.tables);
         self.phase2_max_len = (self.best.len() - self.phase1.len() - 1) as u8;
         self.phase2_target_len = self.phase2_init.dist.min(self.phase2_max_len);
         self.phase2.clear();
@@ -322,39 +321,6 @@ impl Iterator for Solver {
     fn next(&mut self) -> Option<SmallVec<[u8; 30]>> {
         self.step_until(Until::NextSolution).unwrap()
     }
-}
-
-fn phase1_min_len(mut coords: Phase1, tables: &Tables) -> u8 {
-    let mut num_moves = 0;
-    let mut next_d = (coords.min_dist(tables) + 2) % 3;
-    while !coords.reached_goal() {
-        coords = (0..18)
-            .find_map(|i| {
-                let next_coords = coords.mv(i, tables);
-                (next_coords.min_dist(tables) == next_d).then_some(next_coords)
-            })
-            .expect("invalid pruning table: no move was found that decreases the distance");
-        num_moves += 1;
-        next_d = (next_d + 2) % 3;
-    }
-    num_moves
-}
-
-fn phase2_min_len(mut coords: Phase2, tables: &Tables) -> u8 {
-    let mut num_moves = 0;
-    let mut next_d = (coords.min_dist(tables) + 2) % 3;
-    while CP::unpack_sym_coord(coords.cp).0 != 0 || coords.ep8 != 0 {
-        coords = PHASE2_MOVES
-            .iter()
-            .find_map(|&i| {
-                let next_coords = coords.mv(i, tables);
-                (next_coords.min_dist(tables) == next_d).then_some(next_coords)
-            })
-            .expect("invalid pruning table: no move was found that decreases the distance");
-        num_moves += 1;
-        next_d = (next_d + 2) % 3;
-    }
-    num_moves
 }
 
 fn prune_move(prev_mv: u8, mv: u8) -> bool {

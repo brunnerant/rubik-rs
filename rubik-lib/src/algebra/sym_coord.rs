@@ -95,7 +95,7 @@ impl<C: Coord> SymCoordTable<C> {
 
     pub fn sym_to_raw(&self, sym_coord: C::Raw, raw_sym: &RawCoordSymTable<C>) -> C::Raw {
         let (repr_idx, s_idx) = C::unpack_sym_coord(sym_coord);
-        let raw = self.repr_to_raw[C::sym_to_usize(repr_idx)];
+        let raw = self.repr(repr_idx);
         raw_sym.coord_sym(raw, s_idx)
     }
 

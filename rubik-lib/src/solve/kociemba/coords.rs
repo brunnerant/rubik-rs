@@ -12,7 +12,7 @@ use crate::{
         sym_coord::SymCoordTable,
     },
     core::{io::BinarySerde, state::State},
-    solve::kociemba::pruning::PruningTable,
+    solve::kociemba::pruning::{PruningTableR, PruningTableSR},
 };
 
 pub const ALL_MOVES: [u8; 18] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
@@ -39,17 +39,16 @@ pub struct Tables {
     pub ep8_sym: RawCoordSymTable<EP8>,
     pub ep4_mv: RawCoordMoveTable<EP4>,
 
-    // pruning tables
-    pub phase1_pruning: PruningTable<EOLR, CO>,
-    pub phase2_pruning: PruningTable<CP, EP8>,
-}
+    // pruning tables phase 1
+    pub prune_eolr: PruningTableR<EOLR>,
+    pub prune_co: PruningTableR<CO>,
+    pub prune_eolr_co: PruningTableSR<EOLR, CO>,
 
-pub trait Coords {
-    type Tables;
-    fn from_state(state: &State, tables: &Self::Tables) -> Self;
-    fn mv(&self, mv: u8, tables: &Self::Tables) -> Self;
-    fn min_dist(&self, tables: &Self::Tables) -> u8;
-    fn reached_goal(&self) -> bool;
+    // pruning tables phase 2
+    pub prune_cp: PruningTableR<CP>,
+    pub prune_ep8: PruningTableR<EP8>,
+    pub prune_ep4: PruningTableR<EP4>,
+    pub prune_cp_ep8: PruningTableSR<CP, EP8>,
 }
 
 impl Tables {
@@ -64,10 +63,27 @@ impl Tables {
         let ep8_mv = RawCoordMoveTable::build();
         let ep8_sym = RawCoordSymTable::build(&sym);
         let ep4_mv = RawCoordMoveTable::build();
-        let phase1_pruning =
-            PruningTable::build(&sym, &ALL_MOVES, &eolr_coord, &eolr_mv, &co_mv, &co_sym);
-        let phase2_pruning =
-            PruningTable::build(&sym, &PHASE2_MOVES, &cp_coord, &cp_mv, &ep8_mv, &ep8_sym);
+
+        let eolr_raw_mv = RawCoordMoveTable::build();
+        println!("building eolr pruning table");
+        let prune_eolr = PruningTableR::build(&ALL_MOVES, &eolr_raw_mv);
+        println!("building co pruning table");
+        let prune_co = PruningTableR::build(&ALL_MOVES, &co_mv);
+        println!("building eolr-co pruning table");
+        let prune_eolr_co =
+            PruningTableSR::build(&sym, &ALL_MOVES, &eolr_coord, &eolr_mv, &co_mv, &co_sym);
+
+        let cp_raw_mv = RawCoordMoveTable::build();
+        println!("building cp pruning table");
+        let prune_cp = PruningTableR::build(&PHASE2_MOVES, &cp_raw_mv);
+        println!("building ep8 pruning table");
+        let prune_ep8 = PruningTableR::build(&PHASE2_MOVES, &ep8_mv);
+        println!("building ep4 pruning table");
+        let prune_ep4 = PruningTableR::build(&PHASE2_MOVES, &ep4_mv);
+        println!("building cp-ep8 pruning table");
+        let prune_cp_ep8 =
+            PruningTableSR::build(&sym, &PHASE2_MOVES, &cp_coord, &cp_mv, &ep8_mv, &ep8_sym);
+
         Self {
             sym,
             eolr_coord,
@@ -79,8 +95,13 @@ impl Tables {
             ep8_mv,
             ep8_sym,
             ep4_mv,
-            phase1_pruning,
-            phase2_pruning,
+            prune_eolr_co,
+            prune_eolr,
+            prune_co,
+            prune_cp,
+            prune_ep8,
+            prune_ep4,
+            prune_cp_ep8,
         }
     }
 
@@ -95,10 +116,14 @@ impl Tables {
         self.ep8_mv.to_file(folder.join("ep8-raw-coord-mv.bin"))?;
         self.ep8_sym.to_file(folder.join("ep8-raw-coord-sym.bin"))?;
         self.ep4_mv.to_file(folder.join("ep4-raw-coord-mv.bin"))?;
-        self.phase1_pruning
-            .to_file(folder.join("phase1-pruning.bin"))?;
-        self.phase2_pruning
-            .to_file(folder.join("phase2-pruning.bin"))
+        self.prune_eolr_co
+            .to_file(folder.join("prune-eolr-co.bin"))?;
+        self.prune_eolr.to_file(folder.join("prune-eolr.bin"))?;
+        self.prune_co.to_file(folder.join("prune-co.bin"))?;
+        self.prune_cp.to_file(folder.join("prune-cp.bin"))?;
+        self.prune_ep8.to_file(folder.join("prune-ep8.bin"))?;
+        self.prune_ep4.to_file(folder.join("prune-ep4.bin"))?;
+        self.prune_cp_ep8.to_file(folder.join("prune-cp-ep8.bin"))
     }
 
     pub fn from_folder(folder: impl AsRef<Path>) -> std::io::Result<Self> {
@@ -112,8 +137,13 @@ impl Tables {
         let ep8_mv = BinarySerde::from_file(folder.join("ep8-raw-coord-mv.bin"))?;
         let ep8_sym = BinarySerde::from_file(folder.join("ep8-raw-coord-sym.bin"))?;
         let ep4_mv = BinarySerde::from_file(folder.join("ep4-raw-coord-mv.bin"))?;
-        let phase1_pruning = BinarySerde::from_file(folder.join("phase1-pruning.bin"))?;
-        let phase2_pruning = BinarySerde::from_file(folder.join("phase2-pruning.bin"))?;
+        let prune_eolr_co = BinarySerde::from_file(folder.join("prune-eolr-co.bin"))?;
+        let prune_eolr = BinarySerde::from_file(folder.join("prune-eolr.bin"))?;
+        let prune_co = BinarySerde::from_file(folder.join("prune-co.bin"))?;
+        let prune_cp = BinarySerde::from_file(folder.join("prune-cp.bin"))?;
+        let prune_ep8 = BinarySerde::from_file(folder.join("prune-ep8.bin"))?;
+        let prune_ep4 = BinarySerde::from_file(folder.join("prune-ep4.bin"))?;
+        let prune_cp_ep8 = BinarySerde::from_file(folder.join("prune-cp-ep8.bin"))?;
         let sym = Symmetries::sub16();
 
         Ok(Self {
@@ -127,8 +157,13 @@ impl Tables {
             ep8_mv,
             ep8_sym,
             ep4_mv,
-            phase1_pruning,
-            phase2_pruning,
+            prune_eolr_co,
+            prune_eolr,
+            prune_co,
+            prune_cp,
+            prune_ep8,
+            prune_ep4,
+            prune_cp_ep8,
         })
     }
 
@@ -146,9 +181,8 @@ pub struct Phase1 {
     pub co: u16,
 }
 
-impl Coords for Phase1 {
-    type Tables = Tables;
-    fn from_state(state: &State, tables: &Self::Tables) -> Self {
+impl Phase1 {
+    pub fn from_state(state: &State, tables: &Tables) -> Self {
         Self {
             eolr: tables
                 .eolr_coord
@@ -156,18 +190,38 @@ impl Coords for Phase1 {
             co: CO::from_state(state).coord(),
         }
     }
-    fn mv(&self, mv: u8, tables: &Self::Tables) -> Self {
+
+    pub fn mv(&self, mv: u8, tables: &Tables) -> Self {
         Self {
             eolr: tables.eolr_mv.coord_mv(self.eolr, mv, &tables.sym),
             co: tables.co_mv.coord_mv(self.co, mv),
         }
     }
-    fn min_dist(&self, tables: &Self::Tables) -> u8 {
+
+    pub fn depth(&self, tables: &Tables) -> u8 {
+        let mut coords = *self;
+        let mut num_moves = 0;
+        let mut next_d = (coords.depth_mod_3(tables) + 2) % 3;
+        while !coords.reached_goal() {
+            coords = (0..18)
+                .find_map(|i| {
+                    let next_coords = coords.mv(i, tables);
+                    (next_coords.depth_mod_3(tables) == next_d).then_some(next_coords)
+                })
+                .expect("invalid pruning table: no move was found that decreases the distance");
+            num_moves += 1;
+            next_d = (next_d + 2) % 3;
+        }
+        num_moves
+    }
+
+    pub fn depth_mod_3(&self, tables: &Tables) -> u8 {
         tables
-            .phase1_pruning
+            .prune_eolr_co
             .dist(self.eolr, self.co, &tables.sym, &tables.co_sym)
     }
-    fn reached_goal(&self) -> bool {
+
+    pub fn reached_goal(&self) -> bool {
         EOLR::unpack_sym_coord(self.eolr).0 == 0 && self.co == 0
     }
 }
@@ -179,29 +233,49 @@ pub struct Phase2 {
     pub ep4: u8,
 }
 
-impl Coords for Phase2 {
-    type Tables = Tables;
-    fn from_state(state: &State, tables: &Self::Tables) -> Self {
+impl Phase2 {
+    pub fn from_state(state: &State, tables: &Tables) -> Self {
         Self {
             cp: tables.cp_coord.raw_to_sym(CP::from_state(state).coord()),
             ep8: EP8::from_state(state).coord(),
             ep4: EP4::from_state(state).coord(),
         }
     }
-    fn mv(&self, mv: u8, tables: &Self::Tables) -> Self {
+
+    pub fn mv(&self, mv: u8, tables: &Tables) -> Self {
         Self {
             cp: tables.cp_mv.coord_mv(self.cp, mv, &tables.sym),
             ep8: tables.ep8_mv.coord_mv(self.ep8, mv),
             ep4: tables.ep4_mv.coord_mv(self.ep4, mv),
         }
     }
-    fn min_dist(&self, tables: &Self::Tables) -> u8 {
+
+    pub fn depth_cp_ep8(&self, tables: &Tables) -> u8 {
+        let mut coords = *self;
+        let mut num_moves = 0;
+        let mut next_d = (coords.depth_cp_ep8_mod_3(tables) + 2) % 3;
+        while CP::unpack_sym_coord(coords.cp).0 != 0 || coords.ep8 != 0 {
+            coords = PHASE2_MOVES
+                .iter()
+                .find_map(|&i| {
+                    let next_coords = coords.mv(i, tables);
+                    (next_coords.depth_cp_ep8_mod_3(tables) == next_d).then_some(next_coords)
+                })
+                .expect("invalid pruning table: no move was found that decreases the distance");
+            num_moves += 1;
+            next_d = (next_d + 2) % 3;
+        }
+        num_moves
+    }
+
+    pub fn depth_cp_ep8_mod_3(&self, tables: &Tables) -> u8 {
         tables
-            .phase2_pruning
+            .prune_cp_ep8
             .dist(self.cp, self.ep8, &tables.sym, &tables.ep8_sym)
     }
-    fn reached_goal(&self) -> bool {
-        CP::unpack_sym_coord(self.cp).0 == 0 && self.ep8 == 0 && self.ep4 == 0
+
+    pub fn reached_goal(&self) -> bool {
+        self.cp == 0 && self.ep8 == 0 && self.ep4 == 0
     }
 }
 

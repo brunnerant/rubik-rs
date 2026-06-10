@@ -17,22 +17,85 @@ use crate::{
     core::io::BinarySerde,
 };
 
-pub struct PruningTable<C1: Coord, C2: Coord> {
-    /// This is a generic pruning table implementation that takes two coordinates as input
-    /// and outputs the depth from the initial state, modulo 3. The modulo 3 is used
-    /// to compress the table thanks to the face adjacent states in the state graph can only
-    /// differ by one in terms of depth.
-    /// The table is compressed using symmetries on the first coordinate. Let the input
-    /// state belong to the first coordinate class (i, j), where i is the index of the
-    /// representant, and j the symmetry. Let k be the second coordinate. If we apply
-    /// symmetry inv(j) on the state, it gives us the class (i, 0), and k'. i and k'
-    /// are used to index the table, which compresses the full table by about 16.
+/// Pruning table for a single raw coord, encoded using modulo 3 for compression.
+pub struct PruningTableR<C: Coord> {
+    table: Vec<u8>,
+    _c: PhantomData<C>,
+}
+
+impl<C: Coord> PruningTableR<C> {
+    pub fn build(mvs: &[u8], coord_mv: &RawCoordMoveTable<C>) -> Self {
+        let mut num_entries = 0;
+        let total_entries = C::raw_to_usize(C::NUM_RAW);
+        let mut table = vec![!0; total_entries.div_ceil(4)];
+        let mut to_visit: HashSet<C::Raw> = HashSet::from([Zero::zero()]);
+        let mut depth = 0;
+
+        loop {
+            // Fill the entries that were gathered from the previous depth
+            let depth_mod_3 = depth % 3;
+            for &c in to_visit.iter() {
+                set(&mut table, C::raw_to_usize(c), depth_mod_3);
+                num_entries += 1;
+            }
+            println!("depth {depth} done. {} new entries.", to_visit.len());
+            if num_entries == total_entries {
+                break;
+            }
+
+            depth += 1;
+            to_visit = to_visit
+                .into_par_iter()
+                .flat_map_iter(|c| {
+                    let table = &table;
+                    mvs.iter().filter_map(move |&mv| {
+                        let new_c = coord_mv.coord_mv(c, mv);
+                        (get(table, C::raw_to_usize(new_c)) == 0b11).then_some(new_c)
+                    })
+                })
+                .collect();
+        }
+
+        Self {
+            table,
+            _c: PhantomData,
+        }
+    }
+
+    pub fn dist(&self, raw: C::Raw) -> u8 {
+        get(&self.table, C::raw_to_usize(raw))
+    }
+}
+
+impl<C: Coord> BinarySerde for PruningTableR<C> {
+    fn from_binary(buffer: &[u8]) -> Option<Self> {
+        Some(Self {
+            table: buffer.to_vec(),
+            _c: PhantomData,
+        })
+    }
+
+    fn to_binary(&self) -> Vec<u8> {
+        self.table.clone()
+    }
+}
+
+/// This is a generic pruning table implementation that uses two coordinates, one sym and one raw,
+/// and outputs the depth from the initial state, modulo 3. The modulo 3 is used
+/// to compress the table thanks to the face adjacent states in the state graph can only
+/// differ by one in terms of depth.
+/// The table is compressed using symmetries on the first coordinate. Let the input
+/// state belong to the first coordinate class (i, j), where i is the index of the
+/// representant, and j the symmetry. Let k be the second coordinate. If we apply
+/// symmetry inv(j) on the state, it gives us the class (i, 0), and k'. i and k'
+/// are used to index the table, which compresses the full table by about 16.
+pub struct PruningTableSR<C1: Coord, C2: Coord> {
     table: Vec<u8>,
     _c1: PhantomData<C1>,
     _c2: PhantomData<C2>,
 }
 
-impl<C1: Coord, C2: Coord> PruningTable<C1, C2> {
+impl<C1: Coord, C2: Coord> PruningTableSR<C1, C2> {
     pub fn build(
         sym: &Symmetries,
         mvs: &[u8],
@@ -60,12 +123,12 @@ impl<C1: Coord, C2: Coord> PruningTable<C1, C2> {
     }
 }
 
-impl<C1: Coord, C2: Coord> BinarySerde for PruningTable<C1, C2> {
+impl<C1: Coord, C2: Coord> BinarySerde for PruningTableSR<C1, C2> {
     fn from_binary(buffer: &[u8]) -> Option<Self> {
         Some(Self {
             table: buffer.to_vec(),
-            _c1: Default::default(),
-            _c2: Default::default(),
+            _c1: PhantomData,
+            _c2: PhantomData,
         })
     }
 
@@ -110,7 +173,7 @@ impl<'a, C1: Coord, C2: Coord> PruningTableBuilder<'a, C1, C2> {
         }
     }
 
-    fn build(mut self) -> PruningTable<C1, C2> {
+    fn build(mut self) -> PruningTableSR<C1, C2> {
         let mut new_entries: HashSet<_> = self.insert(Zero::zero(), Zero::zero()).collect(); // add the initial state
         let mut depth = 0;
         loop {
@@ -132,24 +195,11 @@ impl<'a, C1: Coord, C2: Coord> PruningTableBuilder<'a, C1, C2> {
                 })
                 .collect();
         }
-        PruningTable {
+        PruningTableSR {
             table: self.table,
             _c1: Default::default(),
             _c2: Default::default(),
         }
-    }
-
-    fn get(&self, idx: usize) -> u8 {
-        let byte_idx = idx >> 2;
-        let bit_idx = (idx & 0b11) << 1;
-        (self.table[byte_idx] >> bit_idx) & 0b11
-    }
-
-    fn set(&mut self, idx: usize, val: u8) {
-        let byte_idx = idx >> 2;
-        let bit_idx = (idx & 0b11) << 1;
-        self.table[byte_idx] &= !(0b11 << bit_idx);
-        self.table[byte_idx] |= (val & 0b11) << bit_idx;
     }
 
     fn insert(&self, c1: C1::Raw, c2: C2::Raw) -> impl Iterator<Item = (C1::ReprIdx, C2::Raw)> {
@@ -158,7 +208,7 @@ impl<'a, C1: Coord, C2: Coord> PruningTableBuilder<'a, C1, C2> {
             let s = self.sym.prod(self.sym.inv(j), k);
             let k = self.c2_sym.coord_sym(c2, s);
             let idx = C1::sym_to_usize(i) * C2::raw_to_usize(C2::NUM_RAW) + C2::raw_to_usize(k);
-            (self.get(idx) == 0b11).then_some((i, k))
+            (get(&self.table, idx) == 0b11).then_some((i, k))
         })
     }
 
@@ -168,9 +218,22 @@ impl<'a, C1: Coord, C2: Coord> PruningTableBuilder<'a, C1, C2> {
         let d = d % 3;
         for &(c1, c2) in new_entries {
             let idx = C1::sym_to_usize(c1) * C2::raw_to_usize(C2::NUM_RAW) + C2::raw_to_usize(c2);
-            self.set(idx, d);
+            set(&mut self.table, idx, d);
             self.num_entries += 1;
         }
         self.num_entries == self.total_entries
     }
+}
+
+fn get(table: &[u8], idx: usize) -> u8 {
+    let byte_idx = idx >> 2;
+    let bit_idx = (idx & 0b11) << 1;
+    (table[byte_idx] >> bit_idx) & 0b11
+}
+
+fn set(table: &mut [u8], idx: usize, val: u8) {
+    let byte_idx = idx >> 2;
+    let bit_idx = (idx & 0b11) << 1;
+    table[byte_idx] &= !(0b11 << bit_idx);
+    table[byte_idx] |= (val & 0b11) << bit_idx;
 }
