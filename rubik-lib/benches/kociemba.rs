@@ -13,7 +13,7 @@ pub fn bench_first(c: &mut Criterion) {
             || scramble(100).1,
             |s| {
                 solver.init(&s);
-                solver.step();
+                solver.next();
             },
             BatchSize::SmallInput,
         );
@@ -29,7 +29,7 @@ pub fn bench_22(c: &mut Criterion) {
             || scramble(100).1,
             |s| {
                 solver.init(&s);
-                while let Some(sol) = solver.step()
+                while let Some(sol) = solver.next()
                     && sol.len() > 22
                 {}
             },

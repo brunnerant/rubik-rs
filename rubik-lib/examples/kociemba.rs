@@ -1,29 +1,33 @@
+use std::time::Duration;
+
 use itertools::join;
 use rubik_lib::{
     core::{moves::Move, scramble::scramble, state::State},
     solve::kociemba::{self},
 };
 
-fn check_moves(mut state: State, moves: &[Move]) {
+fn check_sol(mut state: State, moves: &[u8]) {
     for &mv in moves {
-        state = state * mv;
+        state = state * State::BASIC_MOVES[mv as usize];
     }
     assert_eq!(state, State::ID);
 }
 
 fn main() {
     let mut solver = kociemba::Solver::from_folder("data/kociemba").expect("failed to init solver");
-    let (mvs, state) = scramble(100);
-    println!("scramble:\n{}", join(mvs, " "));
-    println!("solutions:");
-    solver.init(&state);
+    let n = 100;
 
-    while let Some(mvs) = solver.step() {
-        let mvs: Vec<_> = mvs
+    let mut total_length = 0;
+    for _ in 0..n {
+        let (_, state) = scramble(100);
+        let sol = solver.solve_timeout(&state, Duration::from_millis(10));
+        check_sol(state, &sol);
+        total_length += sol.len();
+        let mvs: Vec<_> = sol
             .into_iter()
             .map(|i| Move::BASIC_MOVES[i as usize])
             .collect();
-        check_moves(state, &mvs);
-        println!("{}: {}", mvs.len(), join(mvs, " "));
+        println!("len {}: {}", mvs.len(), join(mvs, " "));
     }
+    println!("avg len: {:.01}", total_length as f32 / n as f32)
 }
