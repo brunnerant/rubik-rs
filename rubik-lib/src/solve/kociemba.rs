@@ -31,17 +31,21 @@ struct Phase2Record {
 
 pub struct Solver {
     coords: Coords,
-    init: State,
-    init1: Phase1Record,
-    init2: Phase2Record,
     phase1_pruning: PruningTable<EOLR, CO>,
     phase2_pruning: PruningTable<CP, EP8>,
+
+    init: State,
+    best: SmallVec<[u8; 30]>,
+
+    phase1: SmallVec<[Phase1Record; 12]>,
+    phase1_init: Phase1Record,
     phase1_target_len: u8,
+    phase1_zero_done: bool,
+
+    phase2: SmallVec<[Phase2Record; 18]>,
+    phase2_init: Phase2Record,
     phase2_target_len: u8,
     phase2_max_len: u8,
-    phase1: SmallVec<[Phase1Record; 12]>,
-    phase2: SmallVec<[Phase2Record; 18]>,
-    best: SmallVec<[u8; 30]>,
 }
 
 impl Solver {
@@ -52,17 +56,21 @@ impl Solver {
         let phase2_pruning = PruningTable::from_file(folder.join("phase2-pruning.bin"))?;
         Ok(Self {
             coords,
-            init: State::ID,
-            init1: Default::default(),
-            init2: Default::default(),
             phase1_pruning,
             phase2_pruning,
+
+            init: State::ID,
+            best: smallvec![0; 30],
+
+            phase1: smallvec![],
+            phase1_init: Default::default(),
             phase1_target_len: 0,
+            phase1_zero_done: false,
+
+            phase2: smallvec![],
+            phase2_init: Default::default(),
             phase2_target_len: 0,
             phase2_max_len: 0,
-            phase1: smallvec![],
-            phase2: smallvec![],
-            best: smallvec![0; 30],
         })
     }
 
@@ -70,39 +78,42 @@ impl Solver {
         self.phase1.clear();
         self.best = smallvec![0; 30];
         self.init = *state;
-        self.init1.eolr = self
+        self.phase1_init.eolr = self
             .coords
             .eolr_coord
             .raw_to_sym(EOLR::from_state(state).coord());
-        self.init1.co = CO::from_state(state).coord();
-        self.init1.dist = phase1_min_len(
-            self.init1.eolr,
-            self.init1.co,
+        self.phase1_init.co = CO::from_state(state).coord();
+        self.phase1_init.dist = phase1_min_len(
+            self.phase1_init.eolr,
+            self.phase1_init.co,
             &self.coords,
             &self.phase1_pruning,
         );
-        self.phase1_target_len = self.init1.dist;
+        self.phase1_target_len = self.phase1_init.dist;
+        self.phase1_zero_done = self.phase1_target_len > 0;
     }
 
     fn phase1_step(&mut self) -> bool {
-        if self.phase1_target_len == 0
-            && EOLR::unpack_sym_coord(self.init1.eolr).0 == 0
-            && self.init1.co == 0
-        {
-            self.phase1_target_len += 1;
-            self.phase1.push(self.init1);
-            return true;
-        }
         loop {
             // Retrieve the last move to perform
             let Some(last) = self.phase1.last_mut() else {
+                // Special case when the initial state is already in the target space
+                if !self.phase1_zero_done
+                    && EOLR::unpack_sym_coord(self.phase1_init.eolr).0 == 0
+                    && self.phase1_init.co == 0
+                {
+                    // Keep the phase1 array empty, but move on in the next iteration
+                    self.phase1_zero_done = true;
+                    return true;
+                }
+
                 // If there is no such move, move on to the next depth (IDA),
                 // except if we reached the maximal depth of 20
                 if self.phase1_target_len >= self.best.len().min(20) as u8 {
                     return false;
                 }
                 self.phase1_target_len += 1;
-                self.phase1.push(self.init1);
+                self.phase1.push(self.phase1_init);
                 continue;
             };
             let mv = last.next_mv;
@@ -162,12 +173,13 @@ impl Solver {
 
     fn phase2_step(&mut self) -> bool {
         if self.phase2_target_len == 0
-            && CP::unpack_sym_coord(self.init2.cp).0 == 0
-            && self.init2.ep8 == 0
-            && self.init2.ep4 == 0
+            && CP::unpack_sym_coord(self.phase2_init.cp).0 == 0
+            && self.phase2_init.ep8 == 0
+            && self.phase2_init.ep4 == 0
         {
             return true;
         }
+
         loop {
             // Retrieve the last move to perform
             let Some(last) = self.phase2.last_mut() else {
@@ -177,7 +189,7 @@ impl Solver {
                     return false;
                 }
                 self.phase2_target_len += 1;
-                self.phase2.push(self.init2);
+                self.phase2.push(self.phase2_init);
                 continue;
             };
             let mv = last.next_mv;
@@ -249,21 +261,21 @@ impl Solver {
             state = state * State::BASIC_MOVES[mv as usize];
         }
 
-        self.init2.cp = self
+        self.phase2_init.cp = self
             .coords
             .cp_coord
             .raw_to_sym(CP::from_state(&state).coord());
-        self.init2.ep8 = EP8::from_state(&state).coord();
-        self.init2.ep4 = EP4::from_state(&state).coord();
-        self.init2.next_mv = 0;
-        self.init2.dist = phase2_min_len(
-            self.init2.cp,
-            self.init2.ep8,
+        self.phase2_init.ep8 = EP8::from_state(&state).coord();
+        self.phase2_init.ep4 = EP4::from_state(&state).coord();
+        self.phase2_init.next_mv = 0;
+        self.phase2_init.dist = phase2_min_len(
+            self.phase2_init.cp,
+            self.phase2_init.ep8,
             &self.coords,
             &self.phase2_pruning,
         );
         self.phase2_max_len = (self.best.len() - self.phase1.len() - 1) as u8;
-        self.phase2_target_len = self.init2.dist.min(self.phase2_max_len);
+        self.phase2_target_len = self.phase2_init.dist.min(self.phase2_max_len);
         self.phase2.clear();
     }
 
