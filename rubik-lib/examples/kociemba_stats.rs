@@ -38,7 +38,11 @@ fn main() {
         let t = i as f64 / num_points as f64;
         let log = (1.0 - t) * log_min + t * log_max;
         let ms = log.exp();
-        let len = avg_sol_length(&mut solver, Duration::from_secs_f64(ms / 1000.0), meas_per_point);
+        let len = avg_sol_length(
+            &mut solver,
+            Duration::from_secs_f64(ms / 1000.0),
+            meas_per_point,
+        );
         println!("{:.1}ms: {:.1}", ms, len);
         series.push((ms, len));
     }

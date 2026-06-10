@@ -20,5 +20,9 @@ fn main() {
     println!("scramble ({} moves): {}", n, join(mvs, " "));
     let sol = solver.solve_timeout(&state, Duration::from_millis(1000));
     check_sol(state, &sol);
-    println!("solution ({} moves): {}", sol.len(), join(sol.iter().map(|&i| Move::BASIC_MOVES[i as usize]), " "));
+    println!(
+        "solution ({} moves): {}",
+        sol.len(),
+        join(sol.iter().map(|&i| Move::BASIC_MOVES[i as usize]), " ")
+    );
 }
