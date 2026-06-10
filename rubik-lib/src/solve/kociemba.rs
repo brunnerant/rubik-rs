@@ -23,7 +23,7 @@ struct Phase1Record {
 #[derive(Default, Clone, Copy)]
 struct Phase2Record {
     dist: u8,
-    next_mv: u8,
+    next_mv_idx: u8,
     cp: u16,
     ep8: u16,
     ep4: u8,
@@ -109,7 +109,7 @@ impl Solver {
 
                 // If there is no such move, move on to the next depth (IDA),
                 // except if we reached the maximal depth of 20
-                if self.phase1_target_len >= self.best.len().min(20) as u8 {
+                if self.phase1_target_len + 1 >= self.best.len().min(21) as u8 {
                     return false;
                 }
                 self.phase1_target_len += 1;
@@ -192,23 +192,21 @@ impl Solver {
                 self.phase2.push(self.phase2_init);
                 continue;
             };
-            let mv = last.next_mv;
+            let mv_idx = last.next_mv_idx;
             let dist = last.dist;
             let cp = last.cp;
             let ep8 = last.ep8;
             let ep4 = last.ep4;
-            last.next_mv += 1;
+            last.next_mv_idx += 1;
 
             // If we haven't exhausted the moves yet, consider the next move
-            if mv < 18 {
-                // Only consider phase 2 moves
-                if !is_phase2_move(mv) {
-                    continue;
-                }
+            if mv_idx < PHASE2_MOVES.len() as u8 {
+                let mv = PHASE2_MOVES[mv_idx as usize];
 
                 // Prune the moves by disallowing repeated moves on the same / opposite face
                 if self.phase2.len() > 1 {
-                    let prev_mv = self.phase2[self.phase2.len() - 2].next_mv - 1;
+                    let prev_mv_idx = self.phase2[self.phase2.len() - 2].next_mv_idx - 1;
+                    let prev_mv = PHASE2_MOVES[prev_mv_idx as usize];
                     if prune_move(prev_mv, mv) {
                         continue;
                     }
@@ -242,7 +240,7 @@ impl Solver {
                 // Go to the next move
                 self.phase2.push(Phase2Record {
                     dist: new_dist,
-                    next_mv: 0,
+                    next_mv_idx: 0,
                     cp,
                     ep8,
                     ep4,
@@ -267,7 +265,7 @@ impl Solver {
             .raw_to_sym(CP::from_state(&state).coord());
         self.phase2_init.ep8 = EP8::from_state(&state).coord();
         self.phase2_init.ep4 = EP4::from_state(&state).coord();
-        self.phase2_init.next_mv = 0;
+        self.phase2_init.next_mv_idx = 0;
         self.phase2_init.dist = phase2_min_len(
             self.phase2_init.cp,
             self.phase2_init.ep8,
@@ -285,7 +283,7 @@ impl Solver {
             if self.phase2_step() {
                 let mut moves = SmallVec::<[u8; 30]>::new();
                 moves.extend(self.phase1.iter().map(|s| s.next_mv - 1));
-                moves.extend(self.phase2.iter().map(|s| s.next_mv - 1));
+                moves.extend(self.phase2.iter().map(|s| PHASE2_MOVES[s.next_mv_idx as usize - 1]));
                 assert!(moves.len() <= self.best.len());
                 self.best = moves.clone();
                 if self.phase1_target_len >= self.best.len() as u8 {
