@@ -21,7 +21,7 @@ pub enum Face {
     Front,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Hash)]
 pub enum Axis {
     X,
     Y,

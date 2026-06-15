@@ -4,7 +4,7 @@ use crate::core::{bits, moves::Move};
 pub struct State {
     /// Each corner contains its position (3 bits) and orientation (2 bits), compared to the solved cube.
     ///
-    /// The positions tell where each corner moves when applying the state.
+    /// The positions tell where each corner comes from when applying the state.
     /// Given cartesian (X, Y, Z) coordinates, they are defined as follows:
     /// - 0: (-1, -1, -1)
     /// - 1: (+1, -1, -1)
@@ -25,7 +25,7 @@ pub struct State {
     pub corners: u64,
     /// Each edge contains its position (4 bits) and orientation (1 bit), compared to the solved cube.
     ///
-    /// The positions tell where each edge moves when applying the state.
+    /// The positions tell where each edge comes from when applying the state.
     /// Given cartesian (X, Y, Z) coordinates, they are defined as follows:
     /// - 0: (0, -1, -1)
     /// - 1: (0, +1, -1)
