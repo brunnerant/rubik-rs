@@ -1,0 +1,9 @@
+[package]
+name = "rubik-vision"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[dev-dependencies]
+workspace_root = "0.2.0"

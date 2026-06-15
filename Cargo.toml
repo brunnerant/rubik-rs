@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["rubik-lib"]
+members = ["rubik-lib", "rubik-vision"]
 
 [profile.release]
 debug = true
