@@ -12,15 +12,15 @@ impl State {
     /// To specify a cube, write out the color of all its stickers as if it was projected on a sheet of paper.
     /// The order of the stickers should respect the following diagram, as read from left to right and top to bottom:
     /// ```raw
-    ///    UUU
-    ///    UUU
-    ///    UUU
-    /// LLLFFFRRRBBB
-    /// LLLFFFRRRBBB
-    /// LLLFFFRRRBBB
-    ///    DDD
-    ///    DDD
-    ///    DDD
+    /// UUU
+    /// UUU
+    /// UUU
+    /// FFFRRRBBBLLL
+    /// FFFRRRBBBLLL
+    /// FFFRRRBBBLLL
+    /// DDD
+    /// DDD
+    /// DDD
     /// ```
     pub fn from_stickers(stickers: &[Face]) -> Option<Self> {
         if stickers.len() != 54 {
@@ -31,12 +31,12 @@ impl State {
                 let idiv3 = (i / 3) % 3;
                 let imod3 = i % 3;
                 match i {
-                    0..9 => stickers[9 + idiv3 * 12 + imod3],
-                    9..18 => stickers[9 + idiv3 * 12 + imod3 + 6],
+                    0..9 => stickers[9 + idiv3 * 12 + imod3 + 9],
+                    9..18 => stickers[9 + idiv3 * 12 + imod3 + 3],
                     18..27 => stickers[i + 27],
                     27..36 => stickers[i - 27],
-                    36..45 => stickers[9 + idiv3 * 12 + imod3 + 9],
-                    45..54 => stickers[9 + idiv3 * 12 + imod3 + 3],
+                    36..45 => stickers[9 + idiv3 * 12 + imod3 + 6],
+                    45..54 => stickers[9 + idiv3 * 12 + imod3],
                     _ => unreachable!(),
                 }
             })
@@ -124,10 +124,10 @@ impl State {
             .collect_array()?;
         let face_mapping = HashMap::from([
             (chars[4], Face::Up),
-            (chars[22], Face::Left),
-            (chars[25], Face::Front),
-            (chars[28], Face::Right),
-            (chars[31], Face::Back),
+            (chars[22], Face::Front),
+            (chars[25], Face::Right),
+            (chars[28], Face::Back),
+            (chars[31], Face::Left),
             (chars[49], Face::Down),
         ]);
         let mut stickers = Vec::with_capacity(54);
@@ -145,100 +145,100 @@ mod tests {
     #[test]
     fn solved_from_string() {
         let cube = "\
-               UUU\
-               UUU\
-               UUU\
-            LLLFFFRRRBBB\
-            LLLFFFRRRBBB\
-            LLLFFFRRRBBB\
-               DDD\
-               DDD\
-               DDD";
+            UUU\
+            UUU\
+            UUU\
+            FFFRRRBBBLLL\
+            FFFRRRBBBLLL\
+            FFFRRRBBBLLL\
+            DDD\
+            DDD\
+            DDD";
         assert_eq!(State::from_string(cube), Some(State::ID));
         let cube = "\
-               111\
-               111\
-               111\
+            111\
+            111\
+            111\
             222333444555\
             222333444555\
             222333444555\
-               666\
-               666\
-               666";
+            666\
+            666\
+            666";
         assert_eq!(State::from_string(cube), Some(State::ID));
     }
 
     #[test]
     fn face_turn_from_string() {
         let cube = "\
-               BUU\
-               BUU\
-               BUU\
-            LLLUFFRRRBBD\
-            LLLUFFRRRBBD\
-            LLLUFFRRRBBD\
-               FDD\
-               FDD\
-               FDD";
+            BUU\
+            BUU\
+            BUU\
+            UFFRRRBBDLLL\
+            UFFRRRBBDLLL\
+            UFFRRRBBDLLL\
+            FDD\
+            FDD\
+            FDD";
         assert_eq!(State::from_string(cube), Some(State::L));
         let cube = "\
-               UUU\
-               UUU\
-               UUU\
+            UUU\
+            UUU\
+            UUU\
+            RRRBBBLLLFFF\
             FFFRRRBBBLLL\
-            LLLFFFRRRBBB\
-            LLLFFFRRRBBB\
-               DDD\
-               DDD\
-               DDD";
+            FFFRRRBBBLLL\
+            DDD\
+            DDD\
+            DDD";
         assert_eq!(State::from_string(cube), Some(State::U));
     }
 
     #[test]
     fn invalid_from_string() {
         let cube = "\
-               UUU\
-               UUU\
-               UFU\
-            LLLFUFRRRBBB\
-            LLLFFFRRRBBB\
-            LLLFFFRRRBBB\
-               DDD\
-               DDD\
-               DDD";
+            UUU\
+            UUU\
+            UFU\
+            FUFRRRBBBLLL\
+            FFFRRRBBBLLL\
+            FFFRRRBBBLLL\
+            DDD\
+            DDD\
+            DDD";
         assert_eq!(State::from_string(cube), None);
         let cube = "\
-               UUU\
-               UUU\
-               UFU\
-            LLLFUFRRRBBB\
-            LLLFUFRRRBBB\
-            LLLFFFRRRBBB\
-               DDD\
-               DDD\
-               DDD";
+            UUU\
+            UUU\
+            UFU\
+            FUFRRRBBBLLL\
+            FUFRRRBBBLLL\
+            FFFRRRBBBLLL\
+            DDD\
+            DDD\
+            DDD";
         assert_eq!(State::from_string(cube), None);
         let cube = "\
-               UUU\
-               UUU\
-               FUU\
-            LLLFFFRRRBBB\
-            LLLFFFRRRBBB\
-            LLLFFFRRRBBB\
-               DDD\
-               DDD\
-               DDD";
+            UUU\
+            UUU\
+            FUU\
+            FFFRRRBBBLLL\
+            FFFRRRBBBLLL\
+            FFFRRRBBBLLL\
+            DDD\
+            DDD\
+            DDD";
         assert_eq!(State::from_string(cube), None);
         let cube = "\
-               UUU\
-               UUU\
-               UFU\
-            LLLFFFRRRBBB\
-            LLLFFFRRRBBB\
-            LLLFFFRRRBBB\
-               DDD\
-               DDD\
-               DDD";
+            UUU\
+            UUU\
+            UFU\
+            FFFRRRBBBLLL\
+            FFFRRRBBBLLL\
+            FFFRRRBBBLLL\
+            DDD\
+            DDD\
+            DDD";
         assert_eq!(State::from_string(cube), None);
     }
 }
