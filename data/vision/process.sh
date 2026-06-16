@@ -1,0 +1,1 @@
+for f in *.png; do convert $f -size 512x512 -gravity center -extent 512x512 out/$f; done
