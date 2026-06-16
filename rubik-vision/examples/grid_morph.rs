@@ -2,15 +2,15 @@ use std::f32::consts::{PI, TAU};
 use std::ffi::OsStr;
 
 use opencv::core::{
-    AlgorithmHint, BORDER_CONSTANT, BORDER_DEFAULT, Mat, MatTraitConst, Point, Point2f, Size,
-    Vec4f, VecN, Vector, bitwise_and, no_array,
+    BORDER_CONSTANT, BORDER_DEFAULT, Mat, MatTraitConst, Point, Point2f, Size, Vec4f, VecN, Vector,
+    bitwise_and, no_array,
 };
 use opencv::imgcodecs::{IMREAD_COLOR, imread, imwrite};
 use opencv::imgproc::{
-    ADAPTIVE_THRESH_MEAN_C, CHAIN_APPROX_SIMPLE, COLOR_BGR2GRAY, INTER_LINEAR, LINE_AA,
-    MORPH_OPEN, MORPH_RECT, RETR_LIST, THRESH_BINARY_INV, adaptive_threshold, canny, circle,
-    cvt_color, find_contours, get_rotation_matrix_2d, get_structuring_element, hough_lines_p,
-    moments, morphology_ex, warp_affine,
+    ADAPTIVE_THRESH_MEAN_C, CHAIN_APPROX_SIMPLE, COLOR_BGR2GRAY, INTER_LINEAR, LINE_AA, MORPH_OPEN,
+    MORPH_RECT, RETR_LIST, THRESH_BINARY_INV, adaptive_threshold, canny, circle, cvt_color,
+    find_contours, get_rotation_matrix_2d, get_structuring_element, hough_lines_p, moments,
+    morphology_ex, warp_affine,
 };
 use rubik_vision::grid::find_two_peaks;
 use workspace_root::get_workspace_root;
@@ -66,7 +66,7 @@ fn main() {
 /// the rotation angle that was applied internally.
 fn detect_grid(img: &Mat) -> Option<(Vec<Vec<(f32, f32)>>, f32)> {
     let mut gray = Mat::default();
-    cvt_color(img, &mut gray, COLOR_BGR2GRAY, 0, AlgorithmHint::ALGO_HINT_DEFAULT).unwrap();
+    cvt_color(img, &mut gray, COLOR_BGR2GRAY, 0).unwrap();
 
     let cx = img.cols() as f32 / 2.0;
     let cy = img.rows() as f32 / 2.0;
@@ -283,18 +283,15 @@ fn draw_grid(img: &mut Mat, grid: &[Vec<(f32, f32)>]) -> opencv::Result<()> {
 
     let n_rows = grid.len().saturating_sub(1);
     for i in 0..n_rows {
-        let n_cols = grid[i].len().saturating_sub(1).min(grid[i + 1].len().saturating_sub(1));
+        let n_cols = grid[i]
+            .len()
+            .saturating_sub(1)
+            .min(grid[i + 1].len().saturating_sub(1));
         for j in 0..n_cols {
-            let cx = (grid[i][j].0
-                + grid[i][j + 1].0
-                + grid[i + 1][j].0
-                + grid[i + 1][j + 1].0)
-                / 4.0;
-            let cy = (grid[i][j].1
-                + grid[i][j + 1].1
-                + grid[i + 1][j].1
-                + grid[i + 1][j + 1].1)
-                / 4.0;
+            let cx =
+                (grid[i][j].0 + grid[i][j + 1].0 + grid[i + 1][j].0 + grid[i + 1][j + 1].0) / 4.0;
+            let cy =
+                (grid[i][j].1 + grid[i][j + 1].1 + grid[i + 1][j].1 + grid[i + 1][j + 1].1) / 4.0;
             circle(
                 img,
                 Point::new(cx as i32, cy as i32),

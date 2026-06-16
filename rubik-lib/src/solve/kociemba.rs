@@ -218,7 +218,7 @@ impl Solver {
             // Return the solution if we reached the target number of moves
             if self.phase2.len() as u8 == self.phase2_target_len {
                 // The other coordinates are zero, but we must check the ep4 coord
-                if next_coords.reached_goal() {
+                if next_coords.ep4 == 0 {
                     return Some(true);
                 } else {
                     return None;
@@ -299,7 +299,7 @@ impl Solver {
         let mut best_sol = self.next().unwrap();
 
         loop {
-            match self.step_until(Until::MaxIterations(1000)) {
+            match self.step_until(Until::MaxIterations(10000)) {
                 None => {}           // next solution not yet reached
                 Some(None) => break, // solutions exhausted
                 Some(Some(mvs)) => {

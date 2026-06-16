@@ -251,18 +251,30 @@ impl Phase2 {
     }
 
     pub fn depth_cp_ep8(&self, tables: &Tables) -> u8 {
-        let mut coords = *self;
         let mut num_moves = 0;
-        let mut next_d = (coords.depth_cp_ep8_mod_3(tables) + 2) % 3;
-        while CP::unpack_sym_coord(coords.cp).0 != 0 || coords.ep8 != 0 {
-            coords = PHASE2_MOVES
+        let mut cp = self.cp;
+        let mut ep8 = self.ep8;
+        let mut next_d = (tables
+            .prune_cp_ep8
+            .dist(cp, ep8, &tables.sym, &tables.ep8_sym)
+            + 2)
+            % 3;
+        while CP::unpack_sym_coord(cp).0 != 0 || ep8 != 0 {
+            let (next_cp, next_ep8) = PHASE2_MOVES
                 .iter()
                 .find_map(|&i| {
-                    let next_coords = coords.mv(i, tables);
-                    (next_coords.depth_cp_ep8_mod_3(tables) == next_d).then_some(next_coords)
+                    let next_cp = tables.cp_mv.coord_mv(cp, i, &tables.sym);
+                    let next_ep8 = tables.ep8_mv.coord_mv(ep8, i);
+                    (tables
+                        .prune_cp_ep8
+                        .dist(next_cp, next_ep8, &tables.sym, &tables.ep8_sym)
+                        == next_d)
+                        .then_some((next_cp, next_ep8))
                 })
                 .expect("invalid pruning table: no move was found that decreases the distance");
             num_moves += 1;
+            cp = next_cp;
+            ep8 = next_ep8;
             next_d = (next_d + 2) % 3;
         }
         num_moves

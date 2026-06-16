@@ -79,7 +79,6 @@ fn main() {
     let mut solver = kociemba::Solver::from_folder("data/kociemba").expect("failed to init solver");
     let mut listener = StdInListener::new();
     loop {
-        println!("enter a cube to solve:");
         let state = next_cube_from_user();
         solver.init(&state);
         println!("searching for solutions...");
