@@ -7,4 +7,5 @@ edition = "2024"
 opencv = { version = "0.98.2", features = ["imgproc", "imgcodecs"], default-features = false }
 
 [dev-dependencies]
+plotters = "0.3.7"
 workspace_root = "0.2.0"

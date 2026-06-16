@@ -1193,6 +1193,7 @@ name = "rubik-vision"
 version = "0.1.0"
 dependencies = [
  "opencv",
+ "plotters",
  "workspace_root",
 ]
 
