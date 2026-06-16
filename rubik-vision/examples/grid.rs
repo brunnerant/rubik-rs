@@ -1,22 +1,165 @@
 use std::f32::consts::{PI, TAU};
 use std::ffi::OsStr;
 
-use opencv::core::Vector;
+use opencv::core::{Point, VecN, Vector};
 use opencv::imgcodecs::{IMREAD_COLOR, imread, imwrite};
-use plotters::backend::SVGBackend;
-use plotters::chart::{ChartBuilder, LabelAreaPosition};
-use plotters::drawing::IntoDrawingArea;
-use plotters::element::Circle;
-use plotters::series::{LineSeries, PointSeries};
-use plotters::style::{BLUE, CYAN, GREEN, MAGENTA, RED, WHITE};
-use rubik_vision::grid::{find_peaks, find_two_peaks, kde, lines};
+use opencv::imgproc::{LINE_AA, circle};
+use rubik_vision::grid::{find_peaks, find_two_peaks, lines};
 use workspace_root::get_workspace_root;
 
-const BANDWIDTH: f32 = 0.1;
-const KDE_RESOLUTION: usize = 512;
-const RHO_MAX: f32 = 500.0;
-const THETA_TOLERANCE: f32 = 10.0 * PI / 180.0;
+const THETA_BANDWIDTH: f32 = 0.1;
+const THETA_TOLERANCE: f32 = 10.0_f32.to_radians();
 const RHO_BANDWIDTH: f32 = 5.0;
+
+// ---------------------------------------------------------------------------
+// Grid types
+// ---------------------------------------------------------------------------
+
+struct Grid {
+    theta1: f32,
+    theta2: f32,
+    /// Sorted rho values for the theta1 family of lines.
+    _rhos1: Vec<f32>,
+    /// Sorted rho values for the theta2 family of lines.
+    _rhos2: Vec<f32>,
+    /// `intersections[i][j]` = pixel (x, y) where rhos1[i] meets rhos2[j].
+    intersections: Vec<Vec<(f32, f32)>>,
+}
+
+impl Grid {
+    fn rows(&self) -> usize {
+        self.intersections.len()
+    }
+
+    fn cols(&self) -> usize {
+        self.intersections.first().map_or(0, |r| r.len())
+    }
+
+    /// Center of each cell bounded by intersection rows i..=i+1, cols j..=j+1.
+    fn cell_centers(&self) -> Vec<Vec<(f32, f32)>> {
+        let rows = self.rows().saturating_sub(1);
+        let cols = self.cols().saturating_sub(1);
+        (0..rows)
+            .map(|i| {
+                (0..cols)
+                    .map(|j| {
+                        let c = [
+                            self.intersections[i][j],
+                            self.intersections[i][j + 1],
+                            self.intersections[i + 1][j],
+                            self.intersections[i + 1][j + 1],
+                        ];
+                        (
+                            c.iter().map(|p| p.0).sum::<f32>() / 4.0,
+                            c.iter().map(|p| p.1).sum::<f32>() / 4.0,
+                        )
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    fn draw(&self, img: &mut opencv::core::Mat) -> opencv::Result<()> {
+        // Green circles at intersection corners.
+        for row in &self.intersections {
+            for &(x, y) in row {
+                circle(
+                    img,
+                    Point::new(x as i32, y as i32),
+                    5,
+                    VecN::new(0.0, 255.0, 0.0, 1.0),
+                    1,
+                    LINE_AA,
+                    0,
+                )?;
+            }
+        }
+        // Blue filled dots at cell centers.
+        for row in self.cell_centers() {
+            for (x, y) in row {
+                circle(
+                    img,
+                    Point::new(x as i32, y as i32),
+                    4,
+                    VecN::new(255.0, 0.0, 0.0, 1.0),
+                    -1,
+                    LINE_AA,
+                    0,
+                )?;
+            }
+        }
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Grid detection
+// ---------------------------------------------------------------------------
+
+/// Intersection of two Hough-polar lines: x·cos θ + y·sin θ = ρ.
+fn intersect_polar(rho1: f32, theta1: f32, rho2: f32, theta2: f32) -> (f32, f32) {
+    // Cramer's rule on the 2×2 system.
+    let theta1 = (theta1 - 0.5 * PI) % TAU;
+    let theta2 = (theta2 - 0.5 * PI) % TAU;
+    let det = theta1.cos() * theta2.sin() - theta1.sin() * theta2.cos();
+    let x = (rho1 * theta2.sin() - rho2 * theta1.sin()) / det;
+    let y = (theta1.cos() * rho2 - theta2.cos() * rho1) / det;
+    (x, y)
+}
+
+/// Absolute angular difference, wrapping at TAU.
+fn angle_diff(a: f32, b: f32) -> f32 {
+    let d = (a - b).abs() % TAU;
+    d.min(TAU - d)
+}
+
+fn detect_grid(detected: &[rubik_vision::grid::Line]) -> Option<Grid> {
+    let thetas: Vec<f32> = detected.iter().map(|l| l.theta).collect();
+    let [t1, t2] = find_two_peaks(&thetas, THETA_BANDWIDTH)?;
+
+    let rhos1: Vec<f32> = detected
+        .iter()
+        .filter(|l| angle_diff(l.theta, t1) < THETA_TOLERANCE)
+        .map(|l| l.rho)
+        .collect();
+    let rhos2: Vec<f32> = detected
+        .iter()
+        .filter(|l| angle_diff(l.theta, t2) < THETA_TOLERANCE)
+        .map(|l| l.rho)
+        .collect();
+
+    let mut peaks1 = find_peaks(&rhos1, RHO_BANDWIDTH, 0.3);
+    let mut peaks2 = find_peaks(&rhos2, RHO_BANDWIDTH, 0.3);
+
+    if peaks1.is_empty() || peaks2.is_empty() {
+        return None;
+    }
+
+    peaks1.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    peaks2.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let intersections = peaks1
+        .iter()
+        .map(|&r1| {
+            peaks2
+                .iter()
+                .map(|&r2| intersect_polar(r1, t1, r2, t2))
+                .collect()
+        })
+        .collect();
+
+    Some(Grid {
+        theta1: t1,
+        theta2: t2,
+        _rhos1: peaks1,
+        _rhos2: peaks2,
+        intersections,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
 
 fn main() {
     let img_folder = get_workspace_root().join("data/vision");
@@ -30,158 +173,26 @@ fn main() {
         }
 
         let out_img = out_folder.join(path.file_name().unwrap());
-        let out_svg = out_folder
-            .join(path.file_name().unwrap())
-            .with_extension("svg");
+        let name = path.file_name().unwrap().to_string_lossy();
 
         let mut img = imread(path.to_str().unwrap(), IMREAD_COLOR).unwrap();
         let detected = lines(&mut img).unwrap();
-        imwrite(out_img.to_str().unwrap(), &img, &Vector::new()).unwrap();
 
-        let thetas: Vec<f32> = detected.iter().map(|l| l.theta).collect();
-        let theta_peaks = find_two_peaks(&thetas, BANDWIDTH);
-
-        let name = path.file_name().unwrap().to_string_lossy();
-
-        // Filter lines into two orientation groups and detect rho peaks.
-        let (rhos1, rhos2, rho_peaks1, rho_peaks2) = match theta_peaks {
-            None => {
-                println!("{name}: no grid detected");
-                (vec![], vec![], vec![], vec![])
-            }
-            Some([t1, t2]) => {
+        match detect_grid(&detected) {
+            None => println!("{name}: no grid detected"),
+            Some(grid) => {
+                let cells = (grid.rows().saturating_sub(1), grid.cols().saturating_sub(1));
                 println!(
-                    "{name}: grid at {:.1}° and {:.1}°",
-                    t1.to_degrees(),
-                    t2.to_degrees()
+                    "{name}: {}×{} cells, lines at {:.1}° / {:.1}°",
+                    cells.0,
+                    cells.1,
+                    grid.theta1.to_degrees(),
+                    grid.theta2.to_degrees(),
                 );
-                let r1: Vec<f32> = detected
-                    .iter()
-                    .filter(|l| (l.theta - t1).abs() < THETA_TOLERANCE)
-                    .map(|l| l.rho)
-                    .collect();
-                let r2: Vec<f32> = detected
-                    .iter()
-                    .filter(|l| (l.theta - t2).abs() < THETA_TOLERANCE)
-                    .map(|l| l.rho)
-                    .collect();
-                let p1 = find_peaks(&r1, RHO_BANDWIDTH, 0.5);
-                let p2 = find_peaks(&r2, RHO_BANDWIDTH, 0.5);
-                (r1, r2, p1, p2)
-            }
-        };
-
-        // Rho KDE over [0, RHO_MAX] for display (aligns with scatter y-axis).
-        let rho_kde1 = kde(&rhos1, 0.0, RHO_MAX, RHO_BANDWIDTH, KDE_RESOLUTION);
-        let rho_kde2 = kde(&rhos2, 0.0, RHO_MAX, RHO_BANDWIDTH, KDE_RESOLUTION);
-        let rho_kde1_max = rho_kde1.iter().cloned().fold(0.0f32, f32::max);
-        let rho_kde2_max = rho_kde2.iter().cloned().fold(0.0f32, f32::max);
-
-        // --- Layout: left panel | scatter | right panel ---
-        let root = SVGBackend::new(&out_svg, (800, 400)).into_drawing_area();
-        root.fill(&WHITE).unwrap();
-        let panels = root.split_by_breakpoints([100u32, 700u32], [] as [u32; 0]);
-
-        // Left panel: rho KDE for group 1, reversed x so density grows outward.
-        {
-            let x_max = rho_kde1_max.max(1.0);
-            let mut panel = ChartBuilder::on(&panels[0])
-                .set_label_area_size(LabelAreaPosition::Left, 30)
-                .build_cartesian_2d(x_max..0.0_f32, 0.0_f32..RHO_MAX)
-                .unwrap();
-            panel
-                .configure_mesh()
-                .disable_x_mesh()
-                .disable_y_mesh()
-                .draw()
-                .unwrap();
-            panel
-                .draw_series(LineSeries::new(
-                    (0..KDE_RESOLUTION).map(|i| {
-                        let rho = i as f32 * RHO_MAX / (KDE_RESOLUTION - 1) as f32;
-                        (rho_kde1[i], rho)
-                    }),
-                    &CYAN,
-                ))
-                .unwrap();
-        }
-
-        // Center panel: scatter + theta KDE + theta peak markers + rho peak markers.
-        {
-            let mut ctx = ChartBuilder::on(&panels[1])
-                .set_label_area_size(LabelAreaPosition::Bottom, 30)
-                .caption(name.as_ref(), ("sans-serif", 20))
-                .build_cartesian_2d(0.0f32..TAU, 0.0f32..RHO_MAX)
-                .unwrap();
-            ctx.configure_mesh().draw().unwrap();
-
-            ctx.draw_series(PointSeries::<_, _, Circle<_, _>, _>::new(
-                detected.iter().map(|l| (l.theta, l.rho)),
-                4,
-                &BLUE,
-            ))
-            .unwrap();
-
-            // Theta KDE overlay (scaled to fit rho axis).
-            if !thetas.is_empty() {
-                let density = kde(&thetas, 0.0, TAU, BANDWIDTH, KDE_RESOLUTION);
-                let peak_density = density.iter().cloned().fold(0.0f32, f32::max);
-                let scale = if peak_density > 0.0 {
-                    RHO_MAX * 0.8 / peak_density
-                } else {
-                    1.0
-                };
-                ctx.draw_series(LineSeries::new(
-                    (0..KDE_RESOLUTION).map(|i| {
-                        let theta = i as f32 * TAU / (KDE_RESOLUTION - 1) as f32;
-                        (theta, density[i] * scale)
-                    }),
-                    &RED,
-                ))
-                .unwrap();
-            }
-
-            // Theta peak markers.
-            if let Some(peaks) = theta_peaks {
-                for peak in peaks {
-                    ctx.draw_series(LineSeries::new([(peak, 0.0), (peak, RHO_MAX)], &GREEN))
-                        .unwrap();
-                }
-            }
-
-            // Rho peak markers (horizontal lines).
-            for &rho in &rho_peaks1 {
-                ctx.draw_series(LineSeries::new([(0.0, rho), (TAU, rho)], &CYAN))
-                    .unwrap();
-            }
-            for &rho in &rho_peaks2 {
-                ctx.draw_series(LineSeries::new([(0.0, rho), (TAU, rho)], &MAGENTA))
-                    .unwrap();
+                grid.draw(&mut img).unwrap();
             }
         }
 
-        // Right panel: rho KDE for group 2, normal x so density grows outward.
-        {
-            let x_max = rho_kde2_max.max(1.0);
-            let mut panel = ChartBuilder::on(&panels[2])
-                .set_label_area_size(LabelAreaPosition::Right, 30)
-                .build_cartesian_2d(0.0_f32..x_max, 0.0_f32..RHO_MAX)
-                .unwrap();
-            panel
-                .configure_mesh()
-                .disable_x_mesh()
-                .disable_y_mesh()
-                .draw()
-                .unwrap();
-            panel
-                .draw_series(LineSeries::new(
-                    (0..KDE_RESOLUTION).map(|i| {
-                        let rho = i as f32 * RHO_MAX / (KDE_RESOLUTION - 1) as f32;
-                        (rho_kde2[i], rho)
-                    }),
-                    &MAGENTA,
-                ))
-                .unwrap();
-        }
+        imwrite(out_img.to_str().unwrap(), &img, &Vector::new()).unwrap();
     }
 }
