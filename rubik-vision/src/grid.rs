@@ -109,7 +109,10 @@ impl Line {
             rho = -rho;
             theta = (theta + PI) % TAU;
         }
-        Self { rho, theta: (theta + 0.5 * PI) % TAU }
+        Self {
+            rho,
+            theta: (theta + 0.5 * PI) % TAU,
+        }
     }
 }
 
@@ -118,10 +121,10 @@ pub fn lines(img: &mut Mat) -> opencv::Result<Vec<Line>> {
         Mat::new_rows_cols_with_default(img.rows(), img.cols(), img.typ(), Scalar::default())?;
     let mut edges_dil: Mat =
         Mat::new_rows_cols_with_default(img.rows(), img.cols(), img.typ(), Scalar::default())?;
-        canny(img, &mut edges, 150.0, 250.0, 3, false).unwrap();
-    let kernel = Mat::new_rows_cols_with_default(3,3, CV_FP16, 1.0.into()).unwrap();
+    canny(img, &mut edges, 150.0, 250.0, 3, false).unwrap();
+    let kernel = Mat::new_rows_cols_with_default(3, 3, CV_FP16, 1.0.into()).unwrap();
     dilate(
-        &mut edges,
+        &edges,
         &mut edges_dil,
         &kernel,
         Point::new(-1, -1),
@@ -130,7 +133,7 @@ pub fn lines(img: &mut Mat) -> opencv::Result<Vec<Line>> {
         VecN::new(0.0, 0.0, 0.0, 0.0),
     )?;
     erode(
-        &mut edges_dil,
+        &edges_dil,
         &mut edges,
         &kernel,
         Point::new(-1, -1),
@@ -158,7 +161,7 @@ pub fn lines(img: &mut Mat) -> opencv::Result<Vec<Line>> {
             Point::new(l[2] as i32, l[3] as i32),
             VecN::new(0.0, 0.0, 255.0, 1.0),
             1,
-            LINE_AA.into(),
+            LINE_AA,
             0,
         )?;
     }
