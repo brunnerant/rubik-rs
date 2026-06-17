@@ -14,84 +14,185 @@ KP_COLORS = [
     (0, 165, 255),
 ]
 
+MIN_SQUARENESS = 0.4   # min(w,h)/max(w,h) of bounding box
+SIZE_RATIO_MIN = 0.05   # blob area / face area
+SIZE_RATIO_MAX = 0.15
 
-SEARCH_MARGIN = 80  # px around YOLO bbox to search for lines
+RUBIK_COLORS = {
+    "W": (255, 255, 255),
+    "Y": (0,   255, 255),
+    "R": (0,   0,   200),
+    "O": (0,   128, 255),
+    "B": (150, 0,   0  ),
+    "G": (0,   180, 0  ),
+}
+
+def _to_lab(bgr):
+    return cv2.cvtColor(np.array([[bgr]], dtype=np.uint8), cv2.COLOR_BGR2LAB)[0, 0].astype(np.float32)
+
+RUBIK_COLORS_LAB = {k: _to_lab(v) for k, v in RUBIK_COLORS.items()}
 
 
-def line_intersect(p1, p2, p3, p4):
-    """Return intersection of lines (p1,p2) and (p3,p4), or None if parallel."""
-    x1, y1 = p1; x2, y2 = p2; x3, y3 = p3; x4, y4 = p4
-    denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
-    if abs(denom) < 1e-6:
+def sample_color(frame, center, radius):
+    cx, cy = int(round(center[0])), int(round(center[1]))
+    r = max(1, int(radius))
+    h, w = frame.shape[:2]
+    region = frame[max(0, cy - r):min(h, cy + r), max(0, cx - r):min(w, cx + r)]
+    if region.size == 0:
         return None
-    t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
-    return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+    return tuple(int(c) for c in region.mean(axis=(0, 1)))
 
 
-def refine_with_hough(gray, raw_pts):
-    xs = raw_pts[:, 0]; ys = raw_pts[:, 1]
-    x1 = int(max(0, xs.min() - SEARCH_MARGIN))
-    y1 = int(max(0, ys.min() - SEARCH_MARGIN))
-    x2 = int(min(gray.shape[1], xs.max() + SEARCH_MARGIN))
-    y2 = int(min(gray.shape[0], ys.max() + SEARCH_MARGIN))
+def classify_all(labs):
+    """Classify all cells with per-frame L normalization (white-point correction)."""
+    valid = np.array([l for l in labs if l is not None], dtype=np.float32)
+    if len(valid) == 0:
+        return [("?", (80, 80, 80))] * len(labs)
 
-    roi = gray[y1:y2, x1:x2]
-    edges = cv2.Canny(roi, 50, 150)
-    lines_raw = cv2.HoughLinesP(edges, 1, np.pi / 180,
-                                 threshold=40, minLineLength=30, maxLineGap=10)
-    if lines_raw is None:
-        return raw_pts, None
+    max_L = valid[:, 0].max()
+    L_scale = 255.0 / max_L if max_L > 1 else 1.0
 
-    # shift line endpoints back to full-image coordinates
-    lines = [((x1 + ax, y1 + ay), (x1 + bx, y1 + by))
-             for (ax, ay, bx, by) in lines_raw[:, 0]]
+    results = []
+    for lab in labs:
+        if lab is None:
+            results.append(("?", (80, 80, 80)))
+            continue
+        corrected = np.array([np.clip(lab[0] * L_scale, 0, 255), lab[1], lab[2]], dtype=np.float32)
+        label = min(RUBIK_COLORS_LAB, key=lambda k: float(np.linalg.norm(corrected - RUBIK_COLORS_LAB[k])))
+        results.append((label, RUBIK_COLORS[label]))
 
-    # for each raw corner, find the line intersection closest to it
-    refined = []
-    for corner in raw_pts:
-        best_pt = corner
-        best_d = float("inf")
-        for i, l1 in enumerate(lines):
-            for l2 in lines[i + 1:]:
-                pt = line_intersect(l1[0], l1[1], l2[0], l2[1])
-                if pt is None:
-                    continue
-                d = np.hypot(pt[0] - corner[0], pt[1] - corner[1])
-                if d < best_d and d < SEARCH_MARGIN:
-                    best_d = d
-                    best_pt = pt
-        refined.append(best_pt)
-
-    return np.array(refined, dtype=np.float32), lines
+    return results
 
 
-def draw(frame, raw_kps, refined_kps, hough_lines):
+def compute_grid_centers(corners):
+    """
+    Map 3x3 cell centers from normalized grid coords to image space.
+    corners: BL(0), BR(1), TL(2), TR(3) as (x, y).
+    Returns 9 (x, y) tuples, row-major from top-left.
+    """
+    src = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype=np.float32)
+    # (0,0)→TL, (1,0)→TR, (0,1)→BL, (1,1)→BR
+    dst = np.array([corners[2], corners[3], corners[0], corners[1]], dtype=np.float32)
+    H, _ = cv2.findHomography(src, dst)
+    centers = []
+    for row in range(3):
+        for col in range(3):
+            pt = np.array([[[(col + 0.5) / 3, (row + 0.5) / 3]]], dtype=np.float32)
+            mapped = cv2.perspectiveTransform(pt, H)
+            centers.append((float(mapped[0, 0, 0]), float(mapped[0, 0, 1])))
+    return centers
+
+
+def quad_area(corners):
+    """Shoelace area of quadrilateral BL, BR, TR, TL."""
+    pts = [corners[0], corners[1], corners[3], corners[2]]
+    n = len(pts)
+    a = sum(pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1]
+            for i in range(n))
+    return abs(a) / 2
+
+
+def detect_blobs(frame, centers, face_area):
+    """
+    Flood-fill from each cell center in LAB space.
+    Returns a list of dicts (or None) per center.
+    """
+    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+
+    h, w = frame.shape[:2]
+    # FIXED_RANGE: compare each pixel against the seed (not its neighbour)
+    flags = 4 | (255 << 8) | cv2.FLOODFILL_MASK_ONLY | cv2.FLOODFILL_FIXED_RANGE
+
+    blobs = []
+    for cx, cy in centers:
+        seed = (int(round(cx)), int(round(cy)))
+        if not (0 <= seed[0] < w and 0 <= seed[1] < h):
+            blobs.append(None)
+            continue
+
+        mask = np.zeros((h + 2, w + 2), np.uint8)
+        cv2.floodFill(lab, mask, seed, (255, 255, 255),
+                      loDiff=(50, 25, 25),   # L loose (handles reflections), A/B tight (stops at color boundaries)
+                      upDiff=(50, 25, 25),
+                      flags=flags)
+        blob_mask = (mask[1:-1, 1:-1] == 255).astype(np.uint8) * 255
+
+        contours, _ = cv2.findContours(blob_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if not contours:
+            blobs.append(None)
+            continue
+
+        cnt = max(contours, key=cv2.contourArea)
+        area = cv2.contourArea(cnt)
+        _, _, bw, bh = cv2.boundingRect(cnt)
+        squareness = min(bw, bh) / max(bw, bh) if max(bw, bh) > 0 else 0
+        size_ratio = area / face_area if face_area > 0 else 0
+
+        if squareness < MIN_SQUARENESS or not (SIZE_RATIO_MIN <= size_ratio <= SIZE_RATIO_MAX):
+            blobs.append(None)
+            continue
+
+        pixels = frame[blob_mask > 0]
+        color = tuple(int(c) for c in pixels.mean(axis=0)) if len(pixels) > 0 else (128, 128, 128)
+        M = cv2.moments(cnt)
+        centroid = (M["m10"] / M["m00"], M["m01"] / M["m00"]) if M["m00"] > 0 else (cx, cy)
+        blobs.append({"contour": cnt, "color": color, "centroid": centroid})
+
+    return blobs
+
+
+def refine_grid_from_blobs(blobs, initial_centers):
+    """
+    Least-squares homography fit from normalized grid coords to image space,
+    using detected blob centroids as ground truth. Falls back to initial_centers
+    if fewer than 4 blobs were detected.
+    """
+    src, dst = [], []
+    for i, blob in enumerate(blobs):
+        if blob is None:
+            continue
+        row, col = divmod(i, 3)
+        src.append([(col + 0.5) / 3, (row + 0.5) / 3])
+        dst.append(blob["centroid"])
+
+    if len(src) < 4:
+        return initial_centers
+
+    H, _ = cv2.findHomography(
+        np.array(src, dtype=np.float32),
+        np.array(dst, dtype=np.float32),
+        method=0,  # plain least squares over all inliers
+    )
+    if H is None:
+        return initial_centers
+
+    grid_pts = np.array(
+        [[[(col + 0.5) / 3, (row + 0.5) / 3]] for row in range(3) for col in range(3)],
+        dtype=np.float32,
+    )
+    refined = cv2.perspectiveTransform(grid_pts, H)
+    return [(float(refined[i, 0, 0]), float(refined[i, 0, 1])) for i in range(9)]
+
+
+def draw(frame, centers, blobs, cell_radius):
     vis = frame.copy()
+    r = max(4, int(cell_radius * 0.55))
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = max(0.3, cell_radius * 0.03)
 
-    if hough_lines is not None:
-        for (ax, ay), (bx, by) in hough_lines:
-            cv2.line(vis, (ax, ay), (bx, by), (80, 80, 80), 1)
+    samples = [sample_color(frame, c, cell_radius * 0.7) for c in centers]
+    labs = [_to_lab(s) if s is not None else None for s in samples]
+    labels = classify_all(labs)
 
-    if refined_kps is not None and len(refined_kps) == 4:
-        # keypoint order: BL(0), BR(1), TL(2), TR(3) → wind as BL→BR→TR→TL
-        pts = refined_kps[[0, 1, 3, 2]].astype(np.int32).reshape((-1, 1, 2))
-        cv2.polylines(vis, [pts], isClosed=True, color=(0, 255, 255), thickness=2)
+    for (cx, cy), _, (label, ref_bgr) in zip(centers, blobs, labels):
+        cx, cy = int(cx), int(cy)
 
-    for i, (rx, ry) in enumerate(raw_kps):
-        cv2.circle(vis, (int(rx), int(ry)), 6, (100, 100, 100), -1)
+        cv2.rectangle(vis, (cx - r, cy - r), (cx + r, cy + r), ref_bgr, -1)
+        cv2.rectangle(vis, (cx - r, cy - r), (cx + r, cy + r), (255, 255, 255), 1)
+        (tw, th), _ = cv2.getTextSize(label, font, font_scale, 1)
+        cv2.putText(vis, label, (cx - tw // 2, cy + th // 2), font, font_scale, (0, 0, 0), 2)
+        cv2.putText(vis, label, (cx - tw // 2, cy + th // 2), font, font_scale, (255, 255, 255), 1)
 
-    if refined_kps is not None:
-        for i, (rx, ry) in enumerate(refined_kps):
-            cv2.circle(vis, (int(rx), int(ry)), 6, KP_COLORS[i], -1)
-            cv2.circle(vis, (int(rx), int(ry)), 7, (255, 255, 255), 1)
-            cv2.putText(vis, str(i + 1), (int(rx) + 9, int(ry) + 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, KP_COLORS[i], 2)
-
-    hint = "q: quit  |  gray dots: YOLO raw  |  color dots: Hough refined  |  gray lines: detected edges"
-    cv2.putText(vis, hint, (10, vis.shape[0] - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 3)
-    cv2.putText(vis, hint, (10, vis.shape[0] - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
     return vis
 
 
@@ -99,7 +200,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default=str(DEFAULT_MODEL))
     parser.add_argument("--camera", type=int, default=0)
-    parser.add_argument("--conf", type=float, default=0.25)
+    parser.add_argument("--conf", type=float, default=0.5)
     args = parser.parse_args()
 
     model = YOLO(args.model)
@@ -117,9 +218,8 @@ def main():
             break
 
         results = model(frame, conf=args.conf, verbose=False)
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
         vis = frame.copy()
+
         for result in results:
             if result.keypoints is None:
                 continue
@@ -127,8 +227,12 @@ def main():
                 if len(kps) != 4:
                     continue
                 raw = kps.cpu().numpy().astype(np.float32)
-                refined, hough_lines = refine_with_hough(gray, raw)
-                vis = draw(vis, raw, refined, hough_lines)
+                centers = compute_grid_centers(raw)
+                fa = quad_area(raw)
+                cell_radius = (fa / 9) ** 0.5 / 2
+                blobs = detect_blobs(frame, centers, fa)
+                centers = refine_grid_from_blobs(blobs, centers)
+                vis = draw(vis, centers, blobs, cell_radius)
 
         cv2.imshow(WIN_NAME, vis)
         if cv2.waitKey(1) & 0xFF == ord("q"):
